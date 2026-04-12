@@ -11,7 +11,7 @@ router.post("/login", login);
 
 router.post("/logout", authMiddleware, logout);
 
-router.post("/refresh", authMiddleware, refreshToken);
+router.get("/refresh", refreshToken);
 
 router.delete("/delete-user", authMiddleware, deleteUser);
 
