@@ -9,6 +9,7 @@ interface IUser {
   refreshToken: string;
   resetPasswordToken?: String,
   resetPasswordExpire?: Date,
+  role?: string
 }
 
 const userSchema = new mongoose.Schema({
@@ -20,6 +21,7 @@ const userSchema = new mongoose.Schema({
   refreshToken: { type: String, default: "" },
   resetPasswordToken: { type: String },
   resetPasswordExpire: { type: Date },
+  role: { type: String, default: "user", trim: true, enum: ["user", "admin"], lowercase: true }
 }, { timestamps: true });
 
 const User = mongoose.model<IUser>("user", userSchema);

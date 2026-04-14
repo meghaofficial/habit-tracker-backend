@@ -28,9 +28,9 @@ export const signup = async (req: Request, res: Response) => {
     const newUser = new User({
       username,
       email,
-      password: hashedPassword,
+      password: hashedPassword
     });
-    const savedUser = await newUser.save();
+    await newUser.save();
 
     return res.status(201).json({
       success: true,
@@ -43,7 +43,68 @@ export const signup = async (req: Request, res: Response) => {
       message: "Internal Server Error",
     });
   }
-};
+}
+
+export const updateRole = async (req: Request, res: Response) => {
+  try {
+    const adminId = (req as any).user?.id;
+    const { targetUserId, newRole } = req.body;
+
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== 'admin') {
+      return res.status(403).json({ success: false, message: "Forbidden: Admin access required" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      targetUserId,
+      { $set: { role: newRole } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User to update not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Role updated successfully",
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+}
+
+export const updateName = async (req: Request, res: Response) => {
+  try {
+
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { new_username } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(userId, { $set: { username: new_username } }, { new: true, runValidators: true });
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User to update not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Username updated successfully",
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+}
 
 export const login = async (req: Request, res: Response) => {
   try {
