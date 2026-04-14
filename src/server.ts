@@ -3,6 +3,7 @@ import express, { Request, Response } from "express";
 import { connectDB } from "./db/db";
 import { userRoute } from "./routes/userRoute";
 import { planRoute } from "./routes/planRoute";
+import { subsRoute } from './routes/subscriptionRoute';
 import cors from 'cors';
 import cookieParser from "cookie-parser";
 
@@ -23,6 +24,6 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Hello');
 });
 app.use("/auth", userRoute);
-app.use("/", planRoute);
+app.use("/api", [planRoute, subsRoute]);
 
 app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));

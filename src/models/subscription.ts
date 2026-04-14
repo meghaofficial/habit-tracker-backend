@@ -1,19 +1,55 @@
-// import mongoose from "mongoose";
+import mongoose from "mongoose";
 
-// interface ISubscription {
-//   name: string;
-//   price: number;
-//   duration: number;
-//   active: boolean;
-// }
+interface ISubscription {
+  userId: mongoose.Types.ObjectId;
+  planId: mongoose.Types.ObjectId;
+  status: "active" | "cancelled" | "expired" | "pending";
+  startDate: Date;
+  endDate: Date;
+  autoRenew: boolean;
+  paymentId?: string;
+}
 
-// const subsSchema = new mongoose.Schema({
-//   name: { type: String, required: true, trim: true, unique: true },
-//   price: { type: Number, default: 0 },
-//   duration: { type: Number, required: true },
-//   active: { type: Boolean, default: false }
-// }, { timestamps: true });
+const subscriptionSchema = new mongoose.Schema<ISubscription>(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      required: true,
+      index: true,
+    },
+    planId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "plan",
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["active", "cancelled", "expired", "pending"],
+      default: "pending",
+    },
+    startDate: {
+      type: Date,
+      required: true,
+    },
+    endDate: {
+      type: Date,
+      required: true,
+    },
+    autoRenew: {
+      type: Boolean,
+      default: true,
+    },
+    paymentId: {
+      type: String,
+    },
+  },
+  { timestamps: true }
+);
 
-// const Subscription = mongoose.model<ISubscription>("plan", subsSchema);
+const Subscription = mongoose.model<ISubscription>(
+  "Subscription",
+  subscriptionSchema
+);
 
-// export default Subscription;
+export default Subscription;
