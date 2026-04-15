@@ -1,13 +1,25 @@
 import mongoose from "mongoose";
 
+interface IRefreshToken {
+  token: String;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+const RefreshTokenSchema = new mongoose.Schema({
+  token: { type: String },
+  createdAt: { type: Date },
+  expiresAt: { type: Date }
+})
+
 interface IUser {
   username: string;
   email: string;
   password?: string;
   provider?: "local" | "google" | "github" | "twitter";
   providerId?: string; // id from OAuth provider
-  refreshToken: string;
-  resetPasswordToken?: String,
+  refreshTokens: IRefreshToken[];
+  resetPasswordToken?: string,
   resetPasswordExpire?: Date,
   role?: string
 }
@@ -18,7 +30,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, trim: true },
   provider: { type: String, enum: ["local", "google", "github", "twitter"], default: "local" },
   providerId: { type: String },
-  refreshToken: { type: String, default: "" },
+  refreshTokens: [RefreshTokenSchema],
   resetPasswordToken: { type: String },
   resetPasswordExpire: { type: Date },
   role: { type: String, default: "user", trim: true, enum: ["user", "admin"], lowercase: true }

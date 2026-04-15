@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import User from "../models/userModel";
+import User from "../models/authModel";
 import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
 import crypto from "crypto";
@@ -28,7 +28,7 @@ export const signup = async (req: Request, res: Response) => {
     const newUser = new User({
       username,
       email,
-      password: hashedPassword
+      password: hashedPassword,
     });
     await newUser.save();
 
@@ -43,7 +43,7 @@ export const signup = async (req: Request, res: Response) => {
       message: "Internal Server Error",
     });
   }
-}
+};
 
 export const updateRole = async (req: Request, res: Response) => {
   try {
@@ -51,35 +51,39 @@ export const updateRole = async (req: Request, res: Response) => {
     const { targetUserId, newRole } = req.body;
 
     const admin = await User.findById(adminId);
-    if (!admin || admin.role !== 'admin') {
-      return res.status(403).json({ success: false, message: "Forbidden: Admin access required" });
+    if (!admin || admin.role !== "admin") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Forbidden: Admin access required" });
     }
 
     const updatedUser = await User.findByIdAndUpdate(
       targetUserId,
       { $set: { role: newRole } },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedUser) {
-      return res.status(404).json({ success: false, message: "User to update not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User to update not found" });
     }
 
     return res.status(200).json({
       success: true,
       message: "Role updated successfully",
-      user: updatedUser
+      user: updatedUser,
     });
-
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
-}
+};
 
 export const updateName = async (req: Request, res: Response) => {
   try {
-
     const userId = (req as any).user?.id;
 
     if (!userId) {
@@ -88,23 +92,30 @@ export const updateName = async (req: Request, res: Response) => {
 
     const { new_username } = req.body;
 
-    const updatedUser = await User.findByIdAndUpdate(userId, { $set: { username: new_username } }, { new: true, runValidators: true });
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: { username: new_username } },
+      { new: true, runValidators: true },
+    );
 
     if (!updatedUser) {
-      return res.status(404).json({ success: false, message: "User to update not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User to update not found" });
     }
 
     return res.status(200).json({
       success: true,
       message: "Username updated successfully",
-      user: updatedUser
+      user: updatedUser,
     });
-
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
-}
+};
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -119,7 +130,7 @@ export const login = async (req: Request, res: Response) => {
     const user = await User.findOne({ email });
 
     if (!user)
-      return res.status(400).json({
+      return res.status(404).json({
         success: false,
         message: "Email not exists",
       });
@@ -144,7 +155,18 @@ export const login = async (req: Request, res: Response) => {
         { expiresIn: "7d" },
       );
 
-      user.refreshToken = refreshToken;
+      const now = new Date();
+
+      user.refreshTokens = user.refreshTokens.filter((t) => t.expiresAt > now);
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      user.refreshTokens.push({
+        token: refreshToken,
+        createdAt: new Date(),
+        expiresAt,
+      });
       await user.save();
 
       return res
@@ -186,7 +208,8 @@ export const logout = async (req: Request, res: Response) => {
     const user = await User.findOne({ refreshToken: token });
 
     if (user) {
-      user.refreshToken = "";
+      const updatedTokens = user.refreshTokens.filter((r) => r.token !== token);
+      user.refreshTokens = updatedTokens;
       await user.save();
     }
 
@@ -208,7 +231,7 @@ export const logout = async (req: Request, res: Response) => {
 export const refreshToken = async (req: Request, res: Response) => {
   const token = req.cookies.refreshToken;
 
-  if (!token) return res.status(401).json({ message: "No token" });
+  if (!token) return res.status(401).json({ message: "No token available" });
 
   try {
     const decoded: any = jwt.verify(
@@ -216,12 +239,29 @@ export const refreshToken = async (req: Request, res: Response) => {
       process.env.REFRESH_SECRET as string,
     );
     const user = await User.findById(decoded.id).select(
-      "_id username email refreshToken",
+      "_id username email refreshTokens",
     );
 
-    if (!user || user.refreshToken !== token) {
-      return res.status(403).json({ message: "Invalid token" });
+    if (!user) {
+      return res
+        .status(403)
+        .json({ success: false, message: "User does not exists" });
     }
+
+    const tokenData = user.refreshTokens.find((t) => t.token === token);
+
+    if (!tokenData || tokenData.expiresAt < new Date()) {
+      return res
+        .status(403)
+        .clearCookie("refreshToken")
+        .json({ message: "Invalid or expired token" });
+    }
+
+    // // remove used token
+    // user.refreshTokens = user.refreshTokens.filter((t) => t.token !== token);
+
+    // // add new token
+    // user.refreshTokens.push(newTokenObject);
 
     const newAccessToken = jwt.sign(
       { id: user._id },
@@ -229,7 +269,6 @@ export const refreshToken = async (req: Request, res: Response) => {
       { expiresIn: "15m" },
     );
 
-    // res.json({ accessToken: newAccessToken });
     res.json({
       success: true,
       accessToken: newAccessToken,
@@ -240,6 +279,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
+    console.log(error);
     res.status(403).json({ message: "Invalid refresh token", error });
   }
 };
