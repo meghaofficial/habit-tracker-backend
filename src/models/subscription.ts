@@ -14,13 +14,13 @@ const subscriptionSchema = new mongoose.Schema<ISubscription>(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
+      ref: "User",
       required: true,
       index: true,
     },
     planId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "plan",
+      ref: "Plan",
       required: true,
     },
     status: {

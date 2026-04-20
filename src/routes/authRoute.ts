@@ -2,7 +2,7 @@ import { Router } from "express";
 const router = Router();
 import jwt from "jsonwebtoken";
 import passport from "passport";
-import { changePassword, deleteUser, forgotPassword, login, logout, refreshToken, resetPassword, signup, updateName, updateRole } from "../controllers/authController";
+import { changePassword, deleteUser, forgotPassword, freeTrial, login, logout, refreshToken, resetPassword, signup, updateName, updateRole } from "../controllers/authController";
 import { authMiddleware, isAdmin } from "../middlewares/authMiddleware";
 
 router.post("/signup", signup);
@@ -15,13 +15,15 @@ router.get("/refresh", refreshToken);
 
 router.delete("/delete-user", authMiddleware, deleteUser);
 
-router.put("/change-password", authMiddleware, changePassword);
+router.patch("/change-password", authMiddleware, changePassword);
 
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 
 router.patch("/update-role", authMiddleware, isAdmin, updateRole);
 router.patch("/update-username", authMiddleware, updateName);
+
+router.patch("/free-trial", authMiddleware, freeTrial);
 
 router.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 

@@ -185,6 +185,7 @@ export const login = async (req: Request, res: Response) => {
             id: user._id,
             username: user.username,
             email: user.email,
+            hasUsedTrial: user?.hasUsedTrial
           },
         });
     }
@@ -197,6 +198,36 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+// export const logout = async (req: Request, res: Response) => {
+//   try {
+//     const token = req.cookies.refreshToken;
+
+//     if (!token) {
+//       return res.sendStatus(204);
+//     }
+
+//     const user = await User.findOne({ refreshToken: token });
+
+//     if (user) {
+//       user.refreshToken = "";
+//       await user.save();
+//     }
+
+//     res.clearCookie("refreshToken", {
+//       httpOnly: true,
+//       secure: false,
+//       sameSite: "lax",
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Logged out successfully",
+//     });
+//   } catch {
+//     res.status(500).json({ success: false, message: "Logout failed" });
+//   }
+// };
+
 export const logout = async (req: Request, res: Response) => {
   try {
     const token = req.cookies.refreshToken;
@@ -205,17 +236,21 @@ export const logout = async (req: Request, res: Response) => {
       return res.sendStatus(204);
     }
 
-    const user = await User.findOne({ refreshToken: token });
+    const user = await User.findOne({
+      "refreshTokens.token": token,
+    });
 
     if (user) {
-      const updatedTokens = user.refreshTokens.filter((r) => r.token !== token);
-      user.refreshTokens = updatedTokens;
+      user.refreshTokens = user.refreshTokens.filter(
+        (rt: any) => rt.token !== token
+      );
+
       await user.save();
     }
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: false,
+      secure: false, // true in production (HTTPS)
       sameSite: "lax",
     });
 
@@ -223,8 +258,11 @@ export const logout = async (req: Request, res: Response) => {
       success: true,
       message: "Logged out successfully",
     });
-  } catch {
-    res.status(500).json({ success: false, message: "Logout failed" });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Logout failed",
+    });
   }
 };
 
@@ -239,7 +277,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       process.env.REFRESH_SECRET as string,
     );
     const user = await User.findById(decoded.id).select(
-      "_id username email refreshTokens",
+      "_id username email refreshTokens hasUsedTrial",
     );
 
     if (!user) {
@@ -276,6 +314,7 @@ export const refreshToken = async (req: Request, res: Response) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        hasUsedTrial: user?.hasUsedTrial
       },
     });
   } catch (error) {
@@ -411,5 +450,42 @@ export const resetPassword = async (req: Request, res: Response) => {
       success: false,
       message: "Internal Server Error",
     });
+  }
+};
+
+export const freeTrial = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const user = await User.findById(userId);
+
+    if (user && user?.hasUsedTrial) {
+      return res.status(200).json({ success: true, message: "Free trial is already activated" });
+    }
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const end = new Date(year, month + 1, 0, 23, 59, 59);
+
+    const updatedUser = await User.findByIdAndUpdate(userId, { $set: { trialStartDate: now, trialEndDate: end, hasUsedTrial: true } }, { new: true, runValidators: true });
+
+    if (!updatedUser) {
+      return res.status(400).json({ success: false, message: "Invalid user" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Your free trial has started from today",
+      startDate: now,
+      endDate: end
+    })
+
+  } catch {
+    res.status(500).json({ success: false, message: "Something went wrong" });
   }
 };

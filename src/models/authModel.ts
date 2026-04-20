@@ -21,7 +21,10 @@ interface IUser {
   refreshTokens: IRefreshToken[];
   resetPasswordToken?: string,
   resetPasswordExpire?: Date,
-  role?: string
+  role?: string,
+  trialStartDate?: Date;
+  trialEndDate?: Date;
+  hasUsedTrial?: boolean;
 }
 
 const userSchema = new mongoose.Schema({
@@ -33,9 +36,12 @@ const userSchema = new mongoose.Schema({
   refreshTokens: [RefreshTokenSchema],
   resetPasswordToken: { type: String },
   resetPasswordExpire: { type: Date },
-  role: { type: String, default: "user", trim: true, enum: ["user", "admin"], lowercase: true }
+  role: { type: String, default: "user", trim: true, enum: ["user", "admin"], lowercase: true },
+  trialStartDate: { type: Date },
+  trialEndDate: { type: Date },
+  hasUsedTrial: { type: Boolean }
 }, { timestamps: true });
 
-const User = mongoose.model<IUser>("user", userSchema);
+const User = mongoose.model<IUser>("User", userSchema);
 
 export default User;

@@ -14,6 +14,6 @@ const plansSchema = new mongoose.Schema({
   active: { type: Boolean, default: false }
 }, { timestamps: true });
 
-const Plan = mongoose.model<IPlan>("plan", plansSchema);
+const Plan = mongoose.model<IPlan>("Plan", plansSchema);
 
 export default Plan;
