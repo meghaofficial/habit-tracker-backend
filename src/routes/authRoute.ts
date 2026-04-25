@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import passport from "passport";
 import { changePassword, deleteUser, forgotPassword, freeTrial, login, logout, refreshToken, resetPassword, signup, updateName, updateRole } from "../controllers/authController";
 import { authMiddleware, isAdmin } from "../middlewares/authMiddleware";
+import { canAccessDashboard } from "../middlewares/dashboardMiddleware";
 
 router.post("/signup", signup);
 

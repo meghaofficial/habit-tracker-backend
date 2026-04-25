@@ -4,6 +4,7 @@ import { connectDB } from "./db/db";
 import { userRoute } from "./routes/authRoute";
 import { planRoute } from "./routes/planRoute";
 import { subsRoute } from './routes/subscriptionRoute';
+import { dashboardRoute } from './routes/dashboardRoute';
 import cors from 'cors';
 import cookieParser from "cookie-parser";
 
@@ -24,6 +25,6 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Hello');
 });
 app.use("/auth", userRoute);
-app.use("/api", [planRoute, subsRoute]);
+app.use("/api", [planRoute, subsRoute, dashboardRoute]);
 
 app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));

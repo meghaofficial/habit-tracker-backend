@@ -1,7 +1,18 @@
 import { Request, Response } from "express";
 import Plan from "../models/plans";
 import Subscription from "../models/subscription";
-// import mongoose from "mongoose";
+
+// export const getDashboard = async (req: Request, res: Response) => {
+//   try {
+
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Something went wrong"
+//     })
+//   }
+// }
 
 // export const subscribe = async (req: Request, res: Response) => {
 //   try {

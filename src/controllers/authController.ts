@@ -3,6 +3,9 @@ import User from "../models/authModel";
 import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
 import crypto from "crypto";
+import { MonthModel } from "../models/dashboardModel";
+import { Types } from "mongoose";
+import { calcFullDate, createTaskData } from "../helper/utils";
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -197,36 +200,6 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 };
-
-// export const logout = async (req: Request, res: Response) => {
-//   try {
-//     const token = req.cookies.refreshToken;
-
-//     if (!token) {
-//       return res.sendStatus(204);
-//     }
-
-//     const user = await User.findOne({ refreshToken: token });
-
-//     if (user) {
-//       user.refreshToken = "";
-//       await user.save();
-//     }
-
-//     res.clearCookie("refreshToken", {
-//       httpOnly: true,
-//       secure: false,
-//       sameSite: "lax",
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Logged out successfully",
-//     });
-//   } catch {
-//     res.status(500).json({ success: false, message: "Logout failed" });
-//   }
-// };
 
 export const logout = async (req: Request, res: Response) => {
   try {
@@ -478,11 +451,46 @@ export const freeTrial = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Invalid user" });
     }
 
+    const date = new Date();
+    const monthNum = date.getMonth() + 1;
+    const yearNum = date.getFullYear();
+
+    const totalDays = new Date(yearNum, monthNum, 0).getDate();
+    const startDateNum = new Date(yearNum, monthNum - 1, 0).getDay(); // for mon - 0, tue - 1, ...;
+
+    const daywiseData = Array.from({ length: totalDays }).map((_, index) => {
+      const fullDate = calcFullDate(yearNum, monthNum, index);
+      const obj = {
+        fullDate,
+        count: 0
+      };
+      return obj;
+    });
+
+
+    const newMonth = new MonthModel({
+      userId,
+      month: monthNum,
+      year: yearNum,
+      totalDays,
+      startDateNum,
+      overallDays: new Date(yearNum, monthNum, 0).getDate(),
+      taskList: [
+        {
+          name: "",
+          taskData: createTaskData(yearNum, monthNum, totalDays)
+        }
+      ],
+      daywiseData,
+    });
+
+    await newMonth.save();
+
     return res.status(200).json({
       success: true,
       message: "Your free trial has started from today",
       startDate: now,
-      endDate: end
+      endDate: end,
     })
 
   } catch {
