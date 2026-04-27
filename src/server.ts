@@ -25,6 +25,6 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Hello');
 });
 app.use("/auth", userRoute);
-app.use("/api", [planRoute, subsRoute, dashboardRoute]);
+app.use("/auth/api", [planRoute, subsRoute, dashboardRoute]);
 
 app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));

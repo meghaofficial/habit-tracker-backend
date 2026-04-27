@@ -1,96 +1,5 @@
 import mongoose, { Schema, Types } from "mongoose";
 
-// interface IMonth extends mongoose.Document {
-//   userId: mongoose.Types.ObjectId;
-//   year: number;
-//   month: number;
-//   habits: mongoose.Types.ObjectId[];
-//   targets: {
-//     monthly: Array<{ goal: string; isDone: boolean }>;
-//     weekly: Array<{ week: number; goals: Array<{ goal: string; isDone: boolean }> }>;
-//   };
-//   note: string;
-// }
-
-// interface IHabit extends mongoose.Document {
-//   userId: mongoose.Types.ObjectId;
-//   title: string;
-// }
-
-// interface IDailyLog extends mongoose.Document {
-//   userId: mongoose.Types.ObjectId;
-//   date: Date;
-//   habits: Array<{ habitId: mongoose.Types.ObjectId; done: boolean }>;
-//   note: string;
-//   status: "default" | "important" | "event" | "achievement" | "sick";
-// }
-
-// const HabitSchema = new mongoose.Schema({
-//   userId: { type: mongoose.Types.ObjectId, ref: "User", required: true },
-//   title: { type: String, required: true },
-// }, { timestamps: true });
-
-// const MonthSchema = new mongoose.Schema({
-//   userId: { type: mongoose.Types.ObjectId, ref: "User", required: true },
-//   year: Number,
-//   month: Number,
-
-//   habits: [
-//     { type: mongoose.Types.ObjectId, ref: "Habit" }
-//   ],
-
-//   targets: {
-//     monthly: [
-//       {
-//         goal: String,
-//         isDone: Boolean
-//       }
-//     ],
-//     weekly: [
-//       {
-//         week: Number,
-//         goals: [
-//           {
-//             goal: String,
-//             isDone: Boolean
-//           }
-//         ]
-//       }
-//     ]
-//   },
-
-//   note: String
-// }, { timestamps: true });
-
-// const DailyLogSchema = new mongoose.Schema({
-//   userId: { type: mongoose.Types.ObjectId, ref: "User", required: true },
-
-//   date: { type: Date, required: true },
-
-//   habits: [
-//     {
-//       habitId: { type: mongoose.Types.ObjectId, ref: "Habit" },
-//       done: Boolean
-//     }
-//   ],
-
-//   note: String,
-
-//   status: {
-//     type: String,
-//     enum: ["default", "important", "event", "achievement", "sick"],
-//     default: "default"
-//   }
-
-// }, { timestamps: true });
-
-// const Month = mongoose.model<IMonth>("Month", MonthSchema);
-// const DailyLog = mongoose.model<IDailyLog>("DailyLog", DailyLogSchema);
-// const Habit = mongoose.model<IHabit>("Habit", HabitSchema);
-
-// export { Month, DailyLog, Habit };
-
-// 1. Define interfaces for Sub-documents
 interface ITarget {
   id: string;
   note: string;
@@ -104,9 +13,11 @@ interface ITaskData {
 }
 
 interface ITask {
-  _id: string;
+  _id: Types.ObjectId | string;
   name: string;
   taskData: ITaskData[];
+  count: number;
+  progress: string | number;
 }
 
 interface IDayNote {
@@ -133,7 +44,13 @@ export interface IMonth extends Document {
   taskList: ITask[];
   daywiseData: {
     fullDate: string;
+    taskData: {
+      taskId: string;
+      checked: boolean;
+    }[];
     count: number;
+    progress: string | number;
+    // count: number;
   }[];
   dayNote?: IDayNote[];
   createdAt: Date;
@@ -178,7 +95,9 @@ const MonthSchema = new Schema<IMonth>({
         checkboxKey: String,
         fullDate: String,
         isChecked: { type: Boolean, default: false }
-      }]
+      }],
+      count: { type: Number, default: 0 },
+      progress: { type: String, default: "0" }
     }],
     validate: [(v: ITask[]) => v.length <= 10, '{PATH} exceeds limit of 10 tasks']
   },
@@ -186,7 +105,9 @@ const MonthSchema = new Schema<IMonth>({
   daywiseData: {
     type: [{
       fullDate: String,
-      count: { type: Number, default: 0 }
+      taskData: [{ taskId: String, checked: Boolean }],
+      count: { type: Number, default: 0 },
+      progress: { type: String, default: "0" }
     }],
     validate: [(v: any[]) => v.length <= 31, '{PATH} exceeds limit of 31']
   },

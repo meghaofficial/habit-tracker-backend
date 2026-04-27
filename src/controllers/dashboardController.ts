@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import User from "../models/authModel";
 import { MonthModel } from "../models/dashboardModel";
 import { createTaskData } from "../helper/utils";
-import { Types } from "mongoose";
+import mongoose from "mongoose";
 
 export const getDashboard = async (req: Request, res: Response) => {
   try {
@@ -94,26 +94,47 @@ export const addTask = async (req: Request, res: Response) => {
       });
     }
 
-    const updatedTaskList = [...existingMonthData.taskList, {
-      name: "",
-      taskData: createTaskData(year, month, existingMonthData.totalDays)
-    }];
-    const updatedOverallDays = existingMonthData.overallDays + existingMonthData.totalDays;
+    const newTaskId = new mongoose.Types.ObjectId();
 
-    const updatedMonth = await MonthModel.findOneAndUpdate(
-      { userId, year, month },
+    const updatedTaskList = [
+      ...existingMonthData.taskList,
       {
-        $set: {
-          overallDays: updatedOverallDays,
-          taskList: updatedTaskList
+        _id: newTaskId,
+        name: "",
+        taskData: createTaskData(year, month, existingMonthData.totalDays),
+        count: 0,
+        progress: "0"
+      }
+    ];
+    const updatedDaywiseData = existingMonthData.daywiseData.map(day => {
+      return {
+        ...day,
+        taskData: [...day.taskData,
+        {
+          _id: new mongoose.Types.ObjectId(),
+          taskId: newTaskId.toString(),
+          checked: false
         }
-      },
-      { new: true }
-    );
+        ],
+        progress: ((day.count / updatedTaskList.length) * 100).toFixed(1)
+      }
+    });
+
+    existingMonthData.overallDays += existingMonthData.totalDays;
+    existingMonthData.taskList.push({
+      _id: newTaskId,
+      name: "",
+      taskData: createTaskData(year, month, existingMonthData.totalDays),
+      count: 0,
+      progress: "0"
+    });
+    existingMonthData.daywiseData = updatedDaywiseData;
+
+    await existingMonthData.save();
 
     res.status(200).json({
       success: true,
-      data: updatedMonth
+      data: existingMonthData,
     });
 
 
@@ -150,34 +171,100 @@ export const removeTask = async (req: Request, res: Response) => {
     }
 
     const updatedTaskList = existingMonthData.taskList.filter(task => task._id.toString() !== taskId);
-    const updatedOverallDays = existingMonthData.overallDays - existingMonthData.totalDays;
-    const updatedDaywiseData = existingMonthData.daywiseData.map(day => day.fullDate === fullDate ? { ...day, count: day.count - 1 } : day);
-
-    const updatedMonth = await MonthModel.findOneAndUpdate(
-      { userId, "taskList._id": taskId },
-      {
-        $set: {
-          overallDays: updatedOverallDays,
-          taskList: updatedTaskList,
-          daywiseData: updatedDaywiseData
+    const updatedDaywiseData = existingMonthData.daywiseData.map(day => {
+      let updatedCnt = day.count;
+      const updatedTaskData = day.taskData.filter(td => {
+        if (td.taskId === taskId) {
+          if (td.checked) {
+            updatedCnt -= 1;
+          }
         }
-      },
-      { new: true }
-    );
+        return td.taskId !== taskId
+      });
+      return {
+        ...day,
+        taskData: updatedTaskData,
+        count: updatedCnt,
+        progress: ((updatedCnt / updatedTaskList.length) * 100).toFixed(1)
+      }
+    });
 
-    if (!updatedMonth) {
-      return res.status(404).json({ success: false, message: "Task or Month not found" });
-    }
+    existingMonthData.overallDays -= existingMonthData.totalDays;
+    existingMonthData.taskList = updatedTaskList;
+    existingMonthData.daywiseData = updatedDaywiseData;
+
+    await existingMonthData.save();
 
     res.status(200).json({
       success: true,
       message: "Task removed and progress recalculated",
-      data: updatedMonth
+      data: existingMonthData
     });
 
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Something went wrong" });
+  }
+};
+
+export const updateTaskCheckData = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const { taskId, checkboxKey } = req.query;
+    const { isChecked, fullDate } = req.body; // fullDate should be "1-1-2024"
+
+    const existingMonthData = await MonthModel.findOne({ userId, "taskList._id": taskId });
+
+    if (!existingMonthData) {
+      return res.status(404).json({ success: false, message: "Task or Month not found" });
+    }
+
+    const updatedTaskList = existingMonthData.taskList.filter(task => {
+      if (task._id.toString() === taskId) {
+        task.taskData = task.taskData.map(td => {
+          if (td.checkboxKey === checkboxKey) {
+            td.isChecked = isChecked;
+          }
+          return td;
+        });
+        task.count = isChecked ? task.count + 1 : task.count - 1;
+        task.progress = ((task.count / existingMonthData.totalDays) * 100).toFixed(1);
+      }
+      return task;
+    });
+
+
+    const updatedDaywiseData = existingMonthData.daywiseData.map(day => {
+
+      if (day.fullDate === fullDate) {
+        day.taskData = day.taskData.map(td => {
+          if (td.taskId === taskId) {
+            td.checked = isChecked;
+          }
+          return td;
+        });
+        day.count = isChecked ? day.count + 1 : day.count - 1;
+        day.progress = ((day.count / updatedTaskList.length) * 100).toFixed(1);
+        return day;
+      }
+
+      return day;
+    });
+
+    existingMonthData.taskList = updatedTaskList;
+    existingMonthData.daywiseData = updatedDaywiseData;
+
+    await existingMonthData.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Progress updated",
+      data: existingMonthData
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
@@ -222,55 +309,31 @@ export const updateTaskName = async (req: Request, res: Response) => {
   }
 }
 
-export const updateTaskCheckData = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user.id;
-    const { taskId, checkboxKey } = req.query;
-    const { isChecked, fullDate } = req.body; // fullDate should be "1-1-2024"
-
-    // This single query updates the specific task checkbox AND the daywise count
-    const updatedMonth = await MonthModel.findOneAndUpdate(
-      {
-        userId,
-        "taskList._id": taskId,
-        "daywiseData.fullDate": fullDate // Find the right day in daywiseData
-      },
-      {
-        $set: {
-          // Updates the specific checkbox inside the taskData array
-          "taskList.$.taskData.$[checkElem].isChecked": isChecked,
-        },
-        $inc: {
-          // If isChecked is true, +1. If false, -1.
-          "daywiseData.$.count": isChecked ? 1 : -1
-        }
-      },
-      {
-        arrayFilters: [{ "checkElem.checkboxKey": checkboxKey }],
-        new: true
-      }
-    );
-
-    if (!updatedMonth) {
-      return res.status(404).json({ success: false, message: "Task, Day, or Month not found" });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Progress updated",
-      data: updatedMonth
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
-};
-
 export const getData = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
-    const { year, month } = req.query;
+
+    const user = await User.findById(userId).select("hasUsedTrial trialStartDate trialEndDate");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        access: false,
+        message: "User not found"
+      });
+    }
+
+    let month = -1;
+    let year = -1;
+
+    if (user?.hasUsedTrial && user?.trialEndDate) {
+      month = user.trialEndDate.getMonth() + 1;
+      year = user.trialEndDate.getFullYear();
+    }
+
+    // check for paid subscription
+
+    // const { year, month } = req.query;
 
     if (!userId || !year || !month) {
       return res.status(400).json({
@@ -299,22 +362,22 @@ export const getData = async (req: Request, res: Response) => {
       return checked;
     };
 
-    const calculatingDaywiseProgress = (): { fullDate: string; count: number; total: number; progress: string | number }[] => {
-      const arr: { fullDate: string; count: number; total: number; progress: string | number }[] = [];
+    // const calculatingDaywiseProgress = (): { fullDate: string; count: number; total: number; progress: string | number }[] => {
+    //   const arr: { fullDate: string; count: number; total: number; progress: string | number }[] = [];
 
-      const total = data?.taskList.length || 0;
+    //   const total = data?.taskList.length || 0;
 
-      data?.daywiseData.forEach((day) => {
-        arr.push({
-          fullDate: day.fullDate,
-          count: day.count,
-          total,
-          progress: total > 0 ? ((day.count / total) * 100).toFixed(1) : 0
-        });
-      });
+    //   data?.daywiseData.forEach((day) => {
+    //     arr.push({
+    //       fullDate: day.fullDate,
+    //       count: day.count,
+    //       total,
+    //       progress: day.count > 0 ? ((day.count / total) * 100).toFixed(1) : 0
+    //     });
+    //   });
 
-      return arr;
-    };
+    //   return arr;
+    // };
 
     const calculatingOverallProgress = (): { total: number; count: number; progress: string | number } => {
       const total = data?.overallDays || 0;
@@ -332,14 +395,17 @@ export const getData = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       data: {
+        month_year: [`${data?.month}-${data?.year}`],
         firstDay: data?.startDateNum || 1,
         totalDays: data?.totalDays || 0,
         overallDays: data?.overallDays || 0,
         note: data?.note || "",
+        taskList: data?.taskList || [],
         taskWiseProgress: calculatingTaskWiseProgress(),
-        daywiseProgress: calculatingDaywiseProgress(),
+        // daywiseData: data?.daywiseData || [],
         overallProgress: calculatingOverallProgress()
-      }
+      },
+      data2: data
     });
   } catch (error) {
     console.log(error);

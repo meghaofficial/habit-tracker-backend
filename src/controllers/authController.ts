@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
 import crypto from "crypto";
 import { MonthModel } from "../models/dashboardModel";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { calcFullDate, createTaskData } from "../helper/utils";
 
 export const signup = async (req: Request, res: Response) => {
@@ -436,7 +436,11 @@ export const freeTrial = async (req: Request, res: Response) => {
 
     const user = await User.findById(userId);
 
-    if (user && user?.hasUsedTrial) {
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user?.hasUsedTrial) {
       return res.status(200).json({ success: true, message: "Free trial is already activated" });
     }
 
@@ -456,17 +460,13 @@ export const freeTrial = async (req: Request, res: Response) => {
     const yearNum = date.getFullYear();
 
     const totalDays = new Date(yearNum, monthNum, 0).getDate();
-    const startDateNum = new Date(yearNum, monthNum - 1, 0).getDay(); // for mon - 0, tue - 1, ...;
+    const startDateNum = new Date(yearNum, monthNum - 1, 1).getDay(); // for mon - 0, tue - 1, ...;
 
-    const daywiseData = Array.from({ length: totalDays }).map((_, index) => {
-      const fullDate = calcFullDate(yearNum, monthNum, index);
-      const obj = {
-        fullDate,
-        count: 0
-      };
-      return obj;
-    });
+    const existingMonth = await MonthModel.findOne({ userId, month: monthNum, year: yearNum });
 
+    if (existingMonth) {
+      return res.status(200).json({ success: true, message: "Your free trial has started from today", startDate: now, endDate: end })
+    }
 
     const newMonth = new MonthModel({
       userId,
@@ -478,11 +478,30 @@ export const freeTrial = async (req: Request, res: Response) => {
       taskList: [
         {
           name: "",
-          taskData: createTaskData(yearNum, monthNum, totalDays)
+          taskData: createTaskData(yearNum, monthNum, totalDays),
+          count: 0,
+          progress: "0"
         }
       ],
-      daywiseData,
     });
+
+    const taskId = newMonth.taskList[0]._id.toString();
+
+    const daywiseData = Array.from({ length: totalDays }).map((_, index) => {
+      const fullDate = calcFullDate(yearNum, monthNum, index);
+      const obj = {
+        fullDate,
+        taskData: [{
+          taskId,
+          checked: false
+        }],
+        count: 0,
+        progress: "0"
+      };
+      return obj;
+    });
+
+    newMonth.daywiseData = daywiseData;
 
     await newMonth.save();
 
