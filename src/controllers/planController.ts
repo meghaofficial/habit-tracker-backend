@@ -8,32 +8,7 @@ export const getAllPlans = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      size: allPlans.length,
       plans: allPlans,
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
-  }
-}
-
-export const getPlan = async (req: Request, res: Response) => {
-  try {
-
-    const { id } = req.query;
-
-    if (!id) {
-      return res.status(400).json({ success: false, message: "ID is required" });
-    }
-
-    const plan = await Plan.findById(id);
-
-    if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
-
-    return res.status(200).json({
-      success: true,
-      plan,
     });
 
   } catch (error) {
@@ -44,13 +19,14 @@ export const getPlan = async (req: Request, res: Response) => {
 
 export const createPlan = async (req: Request, res: Response) => {
   try {
-    const { name, price, duration, active = false } = req.body;
+    const { planName, planType, no_of_months, amount } = req.body;
 
-    if (!name || !price || !duration) {
+    if (!planName || !planType || !no_of_months) {
       return res.status(400).json({ success: false, message: "All fields are required!" });
     }
 
-    const normalizedName = name.trim();
+    const normalizedName = planName.trim().toLowerCase();
+
     const existingPlan = await Plan.findOne({
       name: { $regex: new RegExp(`^${normalizedName}$`, "i") }
     });
@@ -59,7 +35,7 @@ export const createPlan = async (req: Request, res: Response) => {
       return res.status(409).json({ success: false, message: "Plan already exists" });
     }
 
-    const newPlan = new Plan({ name: normalizedName, price, duration, active });
+    const newPlan = new Plan({ planName: normalizedName, planType, no_of_months, amount });
     await newPlan.save();
 
     return res.status(201).json({
@@ -77,13 +53,20 @@ export const createPlan = async (req: Request, res: Response) => {
 export const deletePlan = async (req: Request, res: Response) => {
   try {
 
-    const { id } = req.query;
+    const { plan_id } = req.params;
 
-    if (!id) {
+    if (!plan_id) {
       return res.status(400).json({ success: false, message: "ID is required" });
     }
 
-    await Plan.findByIdAndDelete(id);
+    const plan = await Plan.findByIdAndDelete(plan_id);
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan doesn't exist"
+      })
+    }
 
     return res.status(200).json({
       success: true,
@@ -99,18 +82,18 @@ export const deletePlan = async (req: Request, res: Response) => {
 export const updatePlan = async (req: Request, res: Response) => {
   try {
 
-    const { id } = req.query;
+    const { plan_id } = req.params;
 
-    if (!id) {
+    if (!plan_id) {
       return res.status(400).json({ success: false, message: "ID is required" });
     }
 
     const updates = req.body;
 
     const plan = await Plan.findByIdAndUpdate(
-      id,
+      plan_id,
       { $set: updates },
-      { new: true, runValidators: true } // Returns the updated doc & validates input
+      { new: true, runValidators: true }
     );
 
     if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });

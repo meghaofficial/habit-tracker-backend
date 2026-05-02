@@ -1,22 +1,25 @@
 import { NextFunction, Request, Response } from "express";
-import User from "../models/authModel";
-import { hasAccess } from "../access.service";
+import Subscription from "../models/subscription";
 
 export const canAccessDashboard = async (req: Request, res: Response, next: NextFunction) => {
-  const userId = (req as any).user?.id;
-  const user = await User.findById(userId);
+  const userID = (req as any).user?.id;
+  const now = new Date();
 
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
+  const validSubscription = await Subscription.findOne({
+    userID,
+    status: "active",
+    startDate: { $lte: now },
+    endDate: { $gte: now }
+  }).select("_id startDate endDate status");;
 
-  const access = await hasAccess(user);
-
-  if (!access) {
+  if (!validSubscription) {
     return res.status(403).json({
-      message: "Access denied"
+      success: false,
+      message: "No active subscription found"
     });
   }
+
+  (req as any).subscription = validSubscription;
 
   next();
 };

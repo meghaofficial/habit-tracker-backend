@@ -188,7 +188,6 @@ export const login = async (req: Request, res: Response) => {
             id: user._id,
             username: user.username,
             email: user.email,
-            hasUsedTrial: user?.hasUsedTrial
           },
         });
     }
@@ -250,7 +249,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       process.env.REFRESH_SECRET as string,
     );
     const user = await User.findById(decoded.id).select(
-      "_id username email refreshTokens hasUsedTrial",
+      "_id username email refreshTokens",
     );
 
     if (!user) {
@@ -287,7 +286,6 @@ export const refreshToken = async (req: Request, res: Response) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        hasUsedTrial: user?.hasUsedTrial
       },
     });
   } catch (error) {
@@ -423,96 +421,5 @@ export const resetPassword = async (req: Request, res: Response) => {
       success: false,
       message: "Internal Server Error",
     });
-  }
-};
-
-export const freeTrial = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user?.id;
-
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    if (user?.hasUsedTrial) {
-      return res.status(200).json({ success: true, message: "Free trial is already activated" });
-    }
-
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const end = new Date(year, month + 1, 0, 23, 59, 59);
-
-    const updatedUser = await User.findByIdAndUpdate(userId, { $set: { trialStartDate: now, trialEndDate: end, hasUsedTrial: true } }, { new: true, runValidators: true });
-
-    if (!updatedUser) {
-      return res.status(400).json({ success: false, message: "Invalid user" });
-    }
-
-    const date = new Date();
-    const monthNum = date.getMonth() + 1;
-    const yearNum = date.getFullYear();
-
-    const totalDays = new Date(yearNum, monthNum, 0).getDate();
-    const startDateNum = new Date(yearNum, monthNum - 1, 1).getDay(); // for mon - 0, tue - 1, ...;
-
-    const existingMonth = await MonthModel.findOne({ userId, month: monthNum, year: yearNum });
-
-    if (existingMonth) {
-      return res.status(200).json({ success: true, message: "Your free trial has started from today", startDate: now, endDate: end })
-    }
-
-    const newMonth = new MonthModel({
-      userId,
-      month: monthNum,
-      year: yearNum,
-      totalDays,
-      startDateNum,
-      overallDays: new Date(yearNum, monthNum, 0).getDate(),
-      taskList: [
-        {
-          name: "",
-          taskData: createTaskData(yearNum, monthNum, totalDays),
-          count: 0,
-          progress: "0"
-        }
-      ],
-    });
-
-    const taskId = newMonth.taskList[0]._id.toString();
-
-    const daywiseData = Array.from({ length: totalDays }).map((_, index) => {
-      const fullDate = calcFullDate(yearNum, monthNum, index);
-      const obj = {
-        fullDate,
-        taskData: [{
-          taskId,
-          checked: false
-        }],
-        count: 0,
-        progress: "0"
-      };
-      return obj;
-    });
-
-    newMonth.daywiseData = daywiseData;
-
-    await newMonth.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Your free trial has started from today",
-      startDate: now,
-      endDate: end,
-    })
-
-  } catch {
-    res.status(500).json({ success: false, message: "Something went wrong" });
   }
 };

@@ -1,18 +1,18 @@
 import { Router } from "express";
 import { addTask, getDashboard, removeTask, updateMonthNote, updateTaskCheckData, updateTaskName } from "../controllers/dashboardController";
-import { authMiddleware } from "../middlewares/authMiddleware";
 import { canAccessDashboard } from "../middlewares/dashboardMiddleware";
+import { isAuthorized } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-router.get("/dashboard", authMiddleware, canAccessDashboard, getDashboard);
+router.get("/dashboard", isAuthorized, canAccessDashboard, getDashboard);
 
-router.post("/add-task", authMiddleware, canAccessDashboard, addTask);
-router.delete("/remove-task", authMiddleware, canAccessDashboard, removeTask);
+router.post("/add-task", isAuthorized, canAccessDashboard, addTask);
+router.delete("/remove-task", isAuthorized, canAccessDashboard, removeTask);
 
-router.put("/update-task-name", authMiddleware, canAccessDashboard, updateTaskName);
-router.put("/update-task-check", authMiddleware, canAccessDashboard, updateTaskCheckData);
+router.put("/update-task-name", isAuthorized, canAccessDashboard, updateTaskName);
+router.put("/update-task-check", isAuthorized, canAccessDashboard, updateTaskCheckData);
 
-router.put("/update-month-note", authMiddleware, canAccessDashboard, updateMonthNote);
+router.put("/update-month-note", isAuthorized, canAccessDashboard, updateMonthNote);
 
 export const dashboardRoute = router;

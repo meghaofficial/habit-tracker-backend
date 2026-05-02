@@ -1,55 +1,61 @@
 import mongoose from "mongoose";
 
-interface ISubscription {
-  userId: mongoose.Types.ObjectId;
-  planId: mongoose.Types.ObjectId;
-  status: "active" | "cancelled" | "expired" | "pending";
+interface SubscriptionI {
+  userID: string;
+  planID: string;
+  planType: string;
   startDate: Date;
   endDate: Date;
-  autoRenew: boolean;
-  paymentId?: string;
+  status: string;
+  paymentStatus?: string;
 }
 
-const subscriptionSchema = new mongoose.Schema<ISubscription>(
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
-    planId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Plan",
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: ["active", "cancelled", "expired", "pending"],
-      default: "pending",
-    },
-    startDate: {
-      type: Date,
-      required: true,
-    },
-    endDate: {
-      type: Date,
-      required: true,
-    },
-    autoRenew: {
-      type: Boolean,
-      default: true,
-    },
-    paymentId: {
-      type: String,
-    },
+const subscriptionSchema = new mongoose.Schema({
+  userID: {
+    type: mongoose.Types.ObjectId,
+    ref: "User",
+    required: true,
+    index: true
   },
-  { timestamps: true }
-);
 
-const Subscription = mongoose.model<ISubscription>(
-  "Subscription",
-  subscriptionSchema
-);
+  planID: {
+    type: mongoose.Types.ObjectId,
+    ref: "Plan",
+    required: true
+  },
+
+  planType: {
+    type: String,
+    enum: ["free", "paid"],
+    required: true,
+    index: true
+  },
+
+  startDate: {
+    type: Date,
+    required: true
+  },
+
+  endDate: {
+    type: Date,
+    required: true
+  },
+
+  status: {
+    type: String,
+    enum: ["active", "expired", "scheduled", "cancelled"],
+    default: "active",
+    index: true
+  },
+
+  paymentStatus: {
+    type: String,
+    enum: ["pending", "paid", "failed", "free"],
+    default: "free"
+  }
+
+}, { timestamps: true });
+
+const Subscription = mongoose.model<SubscriptionI>("Subscription", subscriptionSchema);
 
 export default Subscription;

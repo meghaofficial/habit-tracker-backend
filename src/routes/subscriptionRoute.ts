@@ -1,10 +1,15 @@
 import { Router } from "express";
-import { authMiddleware } from "../middlewares/authMiddleware";
-import { subscribe } from "../controllers/subsController";
 import { canAccessDashboard } from "../middlewares/dashboardMiddleware";
+import { isAuthorized } from "../middlewares/authMiddleware";
+import { createSubscription } from "../controllers/subsController";
 
 const router = Router();
 
-// router.post("/subscribe", authMiddleware, canAccessDashboard, subscribe);
+router.post(
+  "/subscribe",
+  isAuthorized,
+  canAccessDashboard,
+  createSubscription
+);
 
 export const subsRoute = router;
