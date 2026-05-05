@@ -8,7 +8,6 @@ const router = Router();
 router.post(
   "/subscribe",
   isAuthorized,
-  canAccessDashboard,
   createSubscription
 );
 

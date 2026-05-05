@@ -10,7 +10,7 @@ export const canAccessDashboard = async (req: Request, res: Response, next: Next
     status: "active",
     startDate: { $lte: now },
     endDate: { $gte: now }
-  }).select("_id startDate endDate status");;
+  }).select("_id startDate endDate status");
 
   if (!validSubscription) {
     return res.status(403).json({
