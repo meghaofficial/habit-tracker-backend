@@ -5,6 +5,7 @@ import { userRoute } from "./routes/authRoute";
 import { planRoute } from "./routes/planRoute";
 import { subsRoute } from './routes/subscriptionRoute';
 import { dashboardRoute } from './routes/dashboardRoute';
+import { dateLogRoute } from './routes/dateRoute';
 import cors from 'cors';
 import cookieParser from "cookie-parser";
 
@@ -27,7 +28,7 @@ const startServer = async () => {
 
     app.get('/', (req, res) => res.send('Hello'));
     app.use("/auth", userRoute);
-    app.use("/auth/api", [planRoute, subsRoute, dashboardRoute]);
+    app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute]);
 
     // 3. Start Listening
     app.listen(PORT, () => console.log(`🚀 listening on PORT - ${PORT}`));

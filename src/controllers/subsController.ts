@@ -127,8 +127,60 @@ export const createSubscription = async (req: Request, res: Response) => {
   }
 };
 
-export const extendPlan = async (req: Request, res: Response) => { }
+export const hasUsedFree = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const hasFreeSub = await Subscription.exists({
+      userID,
+      planType: "free",
+    });
 
-export const getSubsDetails = async (req: Request, res: Response) => { }
+    return res.status(200).json({
+      success: true,
+      hasUsedFree: !!hasFreeSub
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+}
+
+export const getActiveSubscription = async (req: Request, res: Response) => {
+  try {
+
+    const userID = (req as any).user?.id;
+    const activeSub = await Subscription.findOne({
+      userID,
+      status: "active"
+    }).populate("planType startDate endDate status");
+
+    if (!activeSub) {
+      return res.status(404).json({
+        success: false,
+        message: "No active subscription found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      subscription: {
+        planType: activeSub.planType,
+        startDate: activeSub.startDate,
+        endDate: activeSub.endDate,
+        status: activeSub.status
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+}
 
 export const getSubsHistory = async (req: Request, res: Response) => { }

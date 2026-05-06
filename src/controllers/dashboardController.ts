@@ -1,9 +1,5 @@
 import { Request, Response } from "express";
-import User from "../models/authModel";
 import { MonthModel } from "../models/dashboardModel";
-import { createTaskData } from "../helper/utils";
-import mongoose from "mongoose";
-import Subscription from "../models/subscription";
 
 // export const addTask = async (req: Request, res: Response) => {
 //   try {
@@ -375,30 +371,50 @@ export const getDashboard = async (req: Request, res: Response) => {
     const year = Number(req.query.year) || currYear;
     const month = Number(req.query.month) || currMonth;
 
-    const monthData = await MonthModel.findOneAndUpdate(
-      { userID, year, month },
-      {
-        $setOnInsert: {
-          userID,
-          year,
-          month,
-          totalDays: new Date(year, month, 0).getDate(),
-          firstDay: new Date(year, month - 1, 1).getDay()
-        }
-      },
-      { new: true, upsert: true }
-    );
-
+    const existingMonth = await MonthModel.findOne({ userID, year, month });
+    if (!existingMonth) {
+      const newMonth = MonthModel.create({
+        userID,
+        year,
+        month,
+        totalDays: new Date(year, month, 0).getDate(),
+        firstDay: new Date(year, month - 1, 1).getDay()
+      });
+      return res.status(201).json({
+        success: true,
+        monthData: newMonth
+      });
+    }
     return res.status(200).json({
       success: true,
-      data: monthData
+      monthData: existingMonth
     });
+
+    // const monthData = await MonthModel.findOneAndUpdate(
+    //   { userID, year, month },
+    //   {
+    //     $setOnInsert: {
+    //       userID,
+    //       year,
+    //       month,
+    //       totalDays: new Date(year, month, 0).getDate(),
+    //       firstDay: new Date(year, month - 1, 1).getDay()
+    //     }
+    //   },
+    //   { new: true, upsert: true }
+    // );
+
+    // return res.status(200).json({
+    //   success: true,
+    //   data: monthData
+    // });
 
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: "Something went wrong"
+      message: "Something went wrong",
+      error
     });
   }
 };
