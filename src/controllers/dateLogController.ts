@@ -239,71 +239,70 @@ export const markTask = async (
   }
 };
 
-// export const markTask = async (req: Request, res: Response) => {
-//   try {
-//     const userID = (req as any).user?.id;
+export const removeTask = async (
+  req: Request,
+  res: Response
+) => {
 
-//     if (!userID) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Unauthorized"
-//       });
-//     }
+  try {
 
-//     const { monthDashID, date, taskID } = req.query;
-//     const { marked } = req.body;
+    const userID = (req as any).user?.id;
 
-//     if (!monthDashID || !date || !taskID) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Required fields missing."
-//       });
-//     }
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
 
-//     const filter = {
-//       userID,
-//       monthDashID,
-//       date: new Date(date as string)
-//     };
+    const taskID = req.query.taskID as string;
+    const monthDashID = req.query.monthDashID as string;
 
-//     const update = marked
-//       ? {
-//         $set: {
-//           [`tasks.${taskID}`]: true
-//         }
-//       }
-//       : {
-//         $unset: {
-//           [`tasks.${taskID}`]: ""
-//         }
-//       };
+    if (!taskID || !monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields missing"
+      });
+    }
 
-//     const updatedDateLog = await DateLogModel.findOneAndUpdate(
-//       filter,
-//       update,
-//       {
-//         new: true
-//       }
-//     ).lean();
+    const deletedTask =
+      await TaskModel.findOneAndDelete({
+        _id: taskID,
+        monthDashID
+      });
 
-//     if (!updatedDateLog) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Date log not found."
-//       });
-//     }
+    if (!deletedTask) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found"
+      });
+    }
 
-//     return res.status(200).json({
-//       success: true,
-//       dateLogs: updatedDateLog
-//     });
+    await DateLogModel.updateMany(
+      { monthDashID },
+      {
+        $pull: {
+          tasks: taskID
+        }
+      }
+    );
 
-//   } catch (error) {
-//     console.error(error);
+    const remainingTasks =
+      await TaskModel.find({ monthDashID });
 
-//     return res.status(500).json({
-//       success: false,
-//       message: "Something went wrong"
-//     });
-//   }
-// };
+    return res.status(200).json({
+      success: true,
+      tasks: remainingTasks
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong"
+    });
+
+  }
+};
