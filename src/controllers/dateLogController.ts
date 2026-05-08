@@ -306,3 +306,73 @@ export const removeTask = async (
 
   }
 };
+
+export const updateTask = async (
+  req: Request,
+  res: Response
+) => {
+
+  try {
+
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    }
+
+    const taskID = req.query.taskID as string;
+    const { taskName } = req.body;
+
+    if (!taskID) {
+      return res.status(400).json({
+        success: false,
+        message: "TaskID is required"
+      });
+    }
+
+    // if (!taskName || !taskName.trim()) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Task name is required"
+    //   });
+    // }
+
+    const updatedTask =
+      await TaskModel.findOneAndUpdate(
+        { _id: taskID },
+        {
+          $set: {
+            taskName: taskName.trim()
+          }
+        },
+        {
+          new: true
+        }
+      );
+
+    if (!updatedTask) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      task: updatedTask
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong"
+    });
+
+  }
+};
