@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { MonthModel } from "../models/dashboardModel";
 import { DateLogModel } from "../models/dateLogModel";
+import { TaskModel } from "../models/dateLogModel";
 
 export const getDateLog = async (req: Request, res: Response) => {
   try {
@@ -34,7 +35,7 @@ export const getDateLog = async (req: Request, res: Response) => {
     const { month, year, totalDays } = monthDetail;
 
     let existingLogs = await DateLogModel
-      .find({ userID, monthDashID })
+      .find({ monthDashID })
       .lean();
 
     if (existingLogs.length === 0) {
@@ -54,7 +55,7 @@ export const getDateLog = async (req: Request, res: Response) => {
       });
 
       existingLogs = await DateLogModel
-        .find({ userID, monthDashID })
+        .find({ monthDashID })
         .lean();
     }
 
@@ -62,7 +63,7 @@ export const getDateLog = async (req: Request, res: Response) => {
       success: true,
       dateLogs: existingLogs
     });
-
+ 
   } catch (error) {
     console.error(error);
 
@@ -73,74 +74,92 @@ export const getDateLog = async (req: Request, res: Response) => {
   }
 };
 
-// export const addTask = async (req: Request, res: Response) => {
-//   try {
-//     const userID = (req as any).user?.id;
+export const addTask = async (req: Request, res: Response) => {
+  try {
 
-//     if (!userID) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Unauthorized"
-//       });
-//     }
+    const userID = (req as any).user?.id;
 
-//     // const { monthDashID, date, taskID } = req.query;
-//     // const { marked } = req.body;
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    } 
 
-//     // if (!monthDashID || !date || !taskID) {
-//     //   return res.status(400).json({
-//     //     success: false,
-//     //     message: "Required fields missing."
-//     //   });
-//     // }
+    const monthDashID = req.query.monthDashID as string;
+    const { taskName } = req.body;
 
-//     // const filter = {
-//     //   userID,
-//     //   monthDashID,
-//     //   date: new Date(date as string)
-//     // };
+    const totalTasks = await TaskModel.countDocuments({
+      monthDashID
+    });
 
-//     // const update = marked
-//     //   ? {
-//     //     $set: {
-//     //       [`tasks.${taskID}`]: true
-//     //     }
-//     //   }
-//     //   : {
-//     //     $unset: {
-//     //       [`tasks.${taskID}`]: ""
-//     //     }
-//     //   };
+    if (totalTasks >= 10) {
+      return res.status(409).json({
+        success: false,
+        message: "Maximum 10 tasks allowed"
+      });
+    }
 
-//     // const updatedDateLog = await DateLogModel.findOneAndUpdate(
-//     //   filter,
-//     //   update,
-//     //   {
-//     //     new: true
-//     //   }
-//     // ).lean();
+    await TaskModel.create({
+      monthDashID,
+      taskName
+    });
 
-//     // if (!updatedDateLog) {
-//     //   return res.status(404).json({
-//     //     success: false,
-//     //     message: "Date log not found."
-//     //   });
-//     // }
+    const allTasks = await TaskModel.find({
+      monthDashID
+    });
 
-//     return res.status(200).json({
-//       success: true,
-//       dateLogs: updatedDateLog
-//     });
+    return res.status(201).json({
+      success: true,
+      tasks: allTasks
+    });
 
-//   } catch (error) {
-//     console.error(error);
+  } catch (error) {
 
-//     return res.status(500).json({
-//       success: false,
-//       message: "Something went wrong"
-//     });
-//   }
-// };
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong"
+    });
+
+  }
+};
+
+export const getTask = async (req: Request, res: Response) => {
+  try {
+
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized"
+      });
+    } 
+
+    const monthDashID = req.query.monthDashID as string;
+
+    const allTasks = await TaskModel.find({
+      monthDashID
+    });
+
+    return res.status(201).json({
+      success: true,
+      tasks: allTasks
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong"
+    });
+
+  }
+};
 
 export const markTask = async (
   req: Request,
@@ -177,22 +196,21 @@ export const markTask = async (
     normalizedDate.setHours(0, 0, 0, 0);
 
     const filter = {
-      userID,
       monthDashID,
       fullDate: normalizedDate
     };
 
     const update = marked
       ? {
-        $set: {
-          [`tasks.${taskID}`]: true
+          $addToSet: {
+            tasks: taskID
+          }
         }
-      }
       : {
-        $unset: {
-          [`tasks.${taskID}`]: ""
-        }
-      };
+          $pull: {
+            tasks: taskID
+          }
+        };
 
     const updatedDateLog =
       await DateLogModel.findOneAndUpdate(
@@ -206,7 +224,7 @@ export const markTask = async (
 
     return res.status(200).json({
       success: true,
-      dateLog: updatedDateLog
+      dateLog: updatedDateLog,
     });
 
   } catch (error) {
