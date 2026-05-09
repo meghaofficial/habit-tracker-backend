@@ -4,6 +4,7 @@ import {
   DateLogModel,
   MonthlyTargetsModel,
   MonthNoteModel,
+  WeeklyTargetsModel,
 } from "../models/dateLogModel";
 import { TaskModel } from "../models/dateLogModel";
 
@@ -540,7 +541,7 @@ export const getMonthlyTargets = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      monthlyTargets: targets,
+      target: targets,
     });
   } catch (error) {
     console.error(error);
@@ -741,3 +742,88 @@ export const markMonthlyTargets = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+
+
+
+
+export const getWeeklyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID is required",
+      });
+    }
+
+    const targets = await WeeklyTargetsModel.findOne({
+      monthDashID,
+    }).lean();
+
+    return res.status(200).json({
+      success: true,
+      target: targets,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+// export const addWeeklyTargets = async (req: Request, res: Response) => {
+//   try {
+//     const userID = (req as any).user?.id;
+
+//     if (!userID) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized",
+//       });
+//     }
+
+//     const monthDashID = req.query.monthDashID as string;
+
+//     const { target, week } = req.body;
+
+//     if (!monthDashID) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Month Dashboard ID is required",
+//       });
+//     }
+
+//     const newTarget = await WeeklyTargetsModel.findOneAndUpdate(
+//       { monthDashID },
+//       { $push: { targets: { value: target } } },
+//       { new: true, upsert: true },
+//     );
+
+//     return res.status(200).json({
+//       success: true,
+//       target: newTarget,
+//     });
+//   } catch (error) {
+//     console.error(error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Something went wrong",
+//     });
+//   }
+// };

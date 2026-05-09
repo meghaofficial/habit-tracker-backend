@@ -21,6 +21,12 @@ interface MonthlyTargetsI {
   targets: { _id: string; value: string, completed: boolean }[];
 }
 
+interface WeeklyTargetsI {
+  monthDashID: string;
+  week: number;
+  targets: { _id: string; value: string, completed: boolean }[];
+}
+
 const taskSchema = new mongoose.Schema(
   {
     monthDashID: {
@@ -114,6 +120,46 @@ const monthlyTargetSchema = new mongoose.Schema({
 
 monthlyTargetSchema.index({ monthDashID: 1 }, { unique: true });
 
+const weeklyTargetSchema = new mongoose.Schema({
+  monthDashID: {
+    type: mongoose.Types.ObjectId,
+    ref: "MonthDashboard",
+    required: true,
+    index: true,
+  },
+  week: { 
+    type: Number, 
+    min: 1, 
+    max: 5 
+  },
+  targets: {
+    type: [
+      {
+        _id: {
+          type: mongoose.Types.ObjectId,
+          auto: true,
+        },
+
+        value: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+
+        completed: {
+          type: Boolean,
+          default: false
+        }
+      },
+    ],
+    validate: [
+      (arr: { value: string }[]) => arr.length <= 10,
+
+      "Max 10 targets allowed",
+    ],
+  },
+});
+
 export const TaskModel = mongoose.model<TaskI>("Task", taskSchema);
 
 export const DateLogModel = mongoose.model<DateLogI>("DateLog", dateLogSchema);
@@ -126,4 +172,9 @@ export const MonthNoteModel = mongoose.model<MonthlyNoteI>(
 export const MonthlyTargetsModel = mongoose.model<MonthlyTargetsI>(
   "MonthlyTargets",
   monthlyTargetSchema,
+);
+
+export const WeeklyTargetsModel = mongoose.model<WeeklyTargetsI>(
+  "WeeklyTargets",
+  weeklyTargetSchema,
 );
