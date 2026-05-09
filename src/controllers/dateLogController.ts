@@ -10,7 +10,7 @@ export const getDateLog = async (req: Request, res: Response) => {
     if (!userID) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized"
+        message: "Unauthorized",
       });
     }
 
@@ -19,7 +19,7 @@ export const getDateLog = async (req: Request, res: Response) => {
     if (!monthDashID) {
       return res.status(400).json({
         success: false,
-        message: "Month Dashboard ID is required."
+        message: "Month Dashboard ID is required.",
       });
     }
 
@@ -28,230 +28,377 @@ export const getDateLog = async (req: Request, res: Response) => {
     if (!monthDetail) {
       return res.status(404).json({
         success: false,
-        message: "Month Dashboard not found."
+        message: "Month Dashboard not found.",
       });
     }
 
     const { month, year, totalDays } = monthDetail;
 
-    let existingLogs = await DateLogModel
-      .find({ monthDashID })
-      .lean();
+    let existingLogs = await DateLogModel.find({ monthDashID }).lean();
 
     if (existingLogs.length === 0) {
-
-      const logsToCreate = Array.from(
-        { length: totalDays },
-        (_, i) => ({
-          userID,
-          monthDashID,
-          fullDate: new Date(year, month - 1, i + 1),
-          tasks: []
-        })
-      );
+      const logsToCreate = Array.from({ length: totalDays }, (_, i) => ({
+        userID,
+        monthDashID,
+        fullDate: new Date(year, month - 1, i + 1),
+        tasks: [],
+      }));
 
       await DateLogModel.insertMany(logsToCreate, {
-        ordered: false
+        ordered: false,
       });
 
-      existingLogs = await DateLogModel
-        .find({ monthDashID })
-        .lean();
+      existingLogs = await DateLogModel.find({ monthDashID }).lean();
     }
+
+    const tasks = await TaskModel.find({
+      monthDashID,
+    }).lean();
+    const taskIDs = tasks.map((t) => t._id.toString());
+    const progress = calculateProgress(
+      existingLogs.map((log) => ({
+        fullDate: log.fullDate,
+        tasks: log.tasks.map((task) => task.toString()),
+      })),
+      taskIDs,
+    );
 
     return res.status(200).json({
       success: true,
-      dateLogs: existingLogs
+      dateLogs: existingLogs,
+      progress,
     });
- 
   } catch (error) {
     console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong"
+      message: "Something went wrong",
     });
   }
 };
 
 export const addTask = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
 
     if (!userID) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized"
+        message: "Unauthorized",
       });
-    } 
+    }
 
     const monthDashID = req.query.monthDashID as string;
     const { taskName } = req.body;
 
     const totalTasks = await TaskModel.countDocuments({
-      monthDashID
+      monthDashID,
     });
 
     if (totalTasks >= 10) {
       return res.status(409).json({
         success: false,
-        message: "Maximum 10 tasks allowed"
+        message: "Maximum 10 tasks allowed",
       });
     }
 
     await TaskModel.create({
       monthDashID,
-      taskName
+      taskName,
     });
 
     const allTasks = await TaskModel.find({
-      monthDashID
+      monthDashID,
     });
 
     return res.status(201).json({
       success: true,
-      tasks: allTasks
+      tasks: allTasks,
     });
-
   } catch (error) {
-
     console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong"
+      message: "Something went wrong",
     });
-
   }
 };
 
 export const getTask = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
 
     if (!userID) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized"
+        message: "Unauthorized",
       });
-    } 
+    }
 
     const monthDashID = req.query.monthDashID as string;
 
     const allTasks = await TaskModel.find({
-      monthDashID
+      monthDashID,
     });
 
     return res.status(201).json({
       success: true,
-      tasks: allTasks
+      tasks: allTasks,
     });
-
   } catch (error) {
-
     console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong"
+      message: "Something went wrong",
     });
-
   }
 };
 
-export const markTask = async (
-  req: Request,
-  res: Response
-) => {
+export const markTask = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
 
     if (!userID) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized"
+        message: "Unauthorized",
       });
     }
 
     const { monthDashID, fullDate, taskID } = req.query;
     const { marked } = req.body;
 
-    if (
-      !monthDashID ||
-      !fullDate ||
-      !taskID
-    ) {
+    if (!monthDashID || !fullDate || !taskID) {
       return res.status(400).json({
         success: false,
-        message: "Required fields missing."
+        message: "Required fields missing.",
       });
     }
 
-    const normalizedDate =
-      new Date(fullDate as string);
+    const normalizedDate = new Date(fullDate as string);
 
     normalizedDate.setHours(0, 0, 0, 0);
 
     const filter = {
       monthDashID,
-      fullDate: normalizedDate
+      fullDate: normalizedDate,
     };
+
+    //   const update = marked
+    // ? {
+    //     $addToSet: {
+    //       tasks: taskID,
+    //     },
+    //   }
+    // : {
+    //     $pull: {
+    //       tasks: taskID,
+    //     },
+    //   };
 
     const update = marked
       ? {
           $addToSet: {
-            tasks: taskID
-          }
+            tasks: taskID,
+          },
+          $setOnInsert: {
+            monthDashID,
+            fullDate: normalizedDate,
+          },
         }
       : {
           $pull: {
-            tasks: taskID
-          }
+            tasks: taskID,
+          },
+          $setOnInsert: {
+            monthDashID,
+            fullDate: normalizedDate,
+          },
         };
 
-    const updatedDateLog =
-      await DateLogModel.findOneAndUpdate(
-        filter,
-        update,
-        {
-          new: true,
-          upsert: true
-        }
-      ).lean();
+    const updatedDateLog = await DateLogModel.findOneAndUpdate(filter, update, {
+      new: true,
+      upsert: true,
+    }).lean();
+
+    let existingLogs = await DateLogModel.find({ monthDashID }).lean();
+
+    const tasks = await TaskModel.find({
+      monthDashID,
+    }).lean();
+    const taskIDs = tasks.map((t) => t._id.toString());
+    const progress = calculateProgress(
+      existingLogs.map((log) => ({
+        fullDate: log.fullDate,
+        tasks: log.tasks.map((task) => task.toString()),
+      })),
+      taskIDs,
+    );
 
     return res.status(200).json({
       success: true,
       dateLog: updatedDateLog,
+      progress,
     });
-
   } catch (error) {
-
     console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong"
+      message: "Something went wrong",
     });
-
   }
 };
 
-export const removeTask = async (
-  req: Request,
-  res: Response
-) => {
+// export const markTask = async (
+//   req: Request,
+//   res: Response
+// ) => {
 
+//   try {
+
+//     const userID = (req as any).user?.id;
+
+//     if (!userID) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized",
+//       });
+//     }
+
+//     const monthDashID =
+//       req.query.monthDashID as string;
+
+//     const fullDate =
+//       req.query.fullDate as string;
+
+//     const taskID =
+//       req.query.taskID as string;
+
+//     const { marked } = req.body;
+
+//     if (
+//       !monthDashID ||
+//       !fullDate ||
+//       !taskID
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Required fields missing.",
+//       });
+//     }
+
+//     const parsedDate =
+//       new Date(fullDate);
+
+//     const normalizedDate =
+//       new Date(
+//         Date.UTC(
+//           parsedDate.getUTCFullYear(),
+//           parsedDate.getUTCMonth(),
+//           parsedDate.getUTCDate()
+//         )
+//       );
+
+//     const update = marked
+//       ? {
+//           $addToSet: {
+//             tasks: taskID
+//           }
+//         }
+//       : {
+//           $pull: {
+//             tasks: taskID
+//           }
+//         };
+
+//     const updatedDateLog =
+//       await DateLogModel.findOneAndUpdate(
+
+//         {
+//           monthDashID,
+//           fullDate: normalizedDate
+//         },
+
+//         {
+//           ...update,
+
+//           $setOnInsert: {
+//             monthDashID,
+//             fullDate: normalizedDate,
+//             tasks: []
+//           }
+//         },
+
+//         {
+//           new: true,
+//           upsert: true
+//         }
+
+//       ).lean();
+
+//     const existingLogs =
+//       await DateLogModel.find({
+//         monthDashID
+//       })
+//       .sort({ fullDate: 1 })
+//       .lean();
+
+//     // FETCH TASKS
+//     const tasks =
+//       await TaskModel.find({
+//         monthDashID
+//       })
+//       .select("_id")
+//       .lean();
+
+//     const taskIDs = tasks.map(
+//       t => t._id.toString()
+//     );
+
+//     const progress =
+//       calculateProgress(
+
+//         existingLogs.map(log => ({
+//           fullDate: log.fullDate,
+//           tasks: log.tasks.map(
+//             task => task.toString()
+//           )
+//         })),
+
+//         taskIDs
+
+//       );
+
+//     return res.status(200).json({
+//       success: true,
+//       dateLog: updatedDateLog,
+//       progress
+//     });
+
+//   } catch (error) {
+
+//     console.error(error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Something went wrong",
+//     });
+
+//   }
+// };
+
+export const removeTask = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
 
     if (!userID) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized"
+        message: "Unauthorized",
       });
     }
 
@@ -261,20 +408,19 @@ export const removeTask = async (
     if (!taskID || !monthDashID) {
       return res.status(400).json({
         success: false,
-        message: "Required fields missing"
+        message: "Required fields missing",
       });
     }
 
-    const deletedTask =
-      await TaskModel.findOneAndDelete({
-        _id: taskID,
-        monthDashID
-      });
+    const deletedTask = await TaskModel.findOneAndDelete({
+      _id: taskID,
+      monthDashID,
+    });
 
     if (!deletedTask) {
       return res.status(404).json({
         success: false,
-        message: "Task not found"
+        message: "Task not found",
       });
     }
 
@@ -282,44 +428,35 @@ export const removeTask = async (
       { monthDashID },
       {
         $pull: {
-          tasks: taskID
-        }
-      }
+          tasks: taskID,
+        },
+      },
     );
 
-    const remainingTasks =
-      await TaskModel.find({ monthDashID });
+    const remainingTasks = await TaskModel.find({ monthDashID });
 
     return res.status(200).json({
       success: true,
-      tasks: remainingTasks
+      tasks: remainingTasks,
     });
-
   } catch (error) {
-
     console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong"
+      message: "Something went wrong",
     });
-
   }
 };
 
-export const updateTask = async (
-  req: Request,
-  res: Response
-) => {
-
+export const updateTask = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
 
     if (!userID) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized"
+        message: "Unauthorized",
       });
     }
 
@@ -329,7 +466,7 @@ export const updateTask = async (
     if (!taskID) {
       return res.status(400).json({
         success: false,
-        message: "TaskID is required"
+        message: "TaskID is required",
       });
     }
 
@@ -340,39 +477,93 @@ export const updateTask = async (
     //   });
     // }
 
-    const updatedTask =
-      await TaskModel.findOneAndUpdate(
-        { _id: taskID },
-        {
-          $set: {
-            taskName: taskName.trim()
-          }
+    const updatedTask = await TaskModel.findOneAndUpdate(
+      { _id: taskID },
+      {
+        $set: {
+          taskName: taskName.trim(),
         },
-        {
-          new: true
-        }
-      );
+      },
+      {
+        new: true,
+      },
+    );
 
     if (!updatedTask) {
       return res.status(404).json({
         success: false,
-        message: "Task not found"
+        message: "Task not found",
       });
     }
 
     return res.status(200).json({
       success: true,
-      task: updatedTask
+      task: updatedTask,
     });
-
   } catch (error) {
-
     console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong"
+      message: "Something went wrong",
     });
-
   }
 };
+
+function calculateProgress(
+  filteredDateLogs: {
+    fullDate: Date;
+    tasks: string[];
+  }[],
+  tasksList: string[],
+) {
+  const totalDays = filteredDateLogs.length * tasksList.length;
+
+  let totalCount = 0;
+
+  const dateLogProgress: {
+    fullDate: Date;
+    count: number;
+    progress: number | string;
+  }[] = [];
+
+  filteredDateLogs.forEach((d) => {
+    totalCount += d.tasks.length;
+
+    dateLogProgress.push({
+      fullDate: d.fullDate,
+      count: d.tasks.length,
+      progress: ((d.tasks.length / tasksList.length) * 100).toFixed(2),
+    });
+  });
+
+  const overallProgress = {
+    total: totalDays,
+    count: totalCount,
+    progress: ((totalCount / totalDays) * 100).toFixed(2),
+  };
+
+  const taskProgress: {
+    id: string;
+    count: number;
+    progress: number | string;
+  }[] = [];
+
+  tasksList.forEach((t) => {
+    const count = filteredDateLogs.filter((d) => d.tasks.includes(t)).length;
+
+    const progress = ((count / filteredDateLogs.length) * 100).toFixed(2);
+
+    taskProgress.push({
+      id: t,
+      count,
+      progress,
+    });
+  });
+
+  return {
+    overallProgress,
+    dateLogProgress,
+    taskProgress,
+  };
+}
