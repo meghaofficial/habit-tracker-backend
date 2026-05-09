@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { MonthModel } from "../models/dashboardModel";
-import { DateLogModel } from "../models/dateLogModel";
+import { DateLogModel, MonthNoteModel } from "../models/dateLogModel";
 import { TaskModel } from "../models/dateLogModel";
 
 export const getDateLog = async (req: Request, res: Response) => {
@@ -253,144 +253,6 @@ export const markTask = async (req: Request, res: Response) => {
   }
 };
 
-// export const markTask = async (
-//   req: Request,
-//   res: Response
-// ) => {
-
-//   try {
-
-//     const userID = (req as any).user?.id;
-
-//     if (!userID) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Unauthorized",
-//       });
-//     }
-
-//     const monthDashID =
-//       req.query.monthDashID as string;
-
-//     const fullDate =
-//       req.query.fullDate as string;
-
-//     const taskID =
-//       req.query.taskID as string;
-
-//     const { marked } = req.body;
-
-//     if (
-//       !monthDashID ||
-//       !fullDate ||
-//       !taskID
-//     ) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Required fields missing.",
-//       });
-//     }
-
-//     const parsedDate =
-//       new Date(fullDate);
-
-//     const normalizedDate =
-//       new Date(
-//         Date.UTC(
-//           parsedDate.getUTCFullYear(),
-//           parsedDate.getUTCMonth(),
-//           parsedDate.getUTCDate()
-//         )
-//       );
-
-//     const update = marked
-//       ? {
-//           $addToSet: {
-//             tasks: taskID
-//           }
-//         }
-//       : {
-//           $pull: {
-//             tasks: taskID
-//           }
-//         };
-
-//     const updatedDateLog =
-//       await DateLogModel.findOneAndUpdate(
-
-//         {
-//           monthDashID,
-//           fullDate: normalizedDate
-//         },
-
-//         {
-//           ...update,
-
-//           $setOnInsert: {
-//             monthDashID,
-//             fullDate: normalizedDate,
-//             tasks: []
-//           }
-//         },
-
-//         {
-//           new: true,
-//           upsert: true
-//         }
-
-//       ).lean();
-
-//     const existingLogs =
-//       await DateLogModel.find({
-//         monthDashID
-//       })
-//       .sort({ fullDate: 1 })
-//       .lean();
-
-//     // FETCH TASKS
-//     const tasks =
-//       await TaskModel.find({
-//         monthDashID
-//       })
-//       .select("_id")
-//       .lean();
-
-//     const taskIDs = tasks.map(
-//       t => t._id.toString()
-//     );
-
-//     const progress =
-//       calculateProgress(
-
-//         existingLogs.map(log => ({
-//           fullDate: log.fullDate,
-//           tasks: log.tasks.map(
-//             task => task.toString()
-//           )
-//         })),
-
-//         taskIDs
-
-//       );
-
-//     return res.status(200).json({
-//       success: true,
-//       dateLog: updatedDateLog,
-//       progress
-//     });
-
-//   } catch (error) {
-
-//     console.error(error);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Something went wrong",
-//     });
-
-//   }
-// };
-
 export const removeTask = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -567,3 +429,100 @@ function calculateProgress(
     taskProgress,
   };
 }
+
+export const getMonthlyNote = async (
+  req: Request,
+  res: Response
+) => {
+
+  try {
+
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID =
+      req.query.monthDashID as string;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID is required"
+      });
+    }
+
+    const note =
+      await MonthNoteModel.findOne({
+        monthDashID
+      }).lean();
+
+    return res.status(200).json({
+      success: true,
+      note
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+
+  }
+};
+
+export const updateMonthlyNote = async (
+  req: Request,
+  res: Response
+) => {
+
+  try {
+
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID =
+      req.query.monthDashID as string;
+
+    const { note } = req.body;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID is required"
+      });
+    }
+
+    const updatedNote = await MonthNoteModel.findOneAndUpdate({ monthDashID },{ $set: { note } },
+        { new: true, upsert: true }
+      );
+
+    return res.status(200).json({
+      success: true,
+      note: updatedNote
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+
+  }
+};

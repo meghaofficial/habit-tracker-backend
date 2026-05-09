@@ -11,6 +11,11 @@ interface DateLogI {
   tasks: string[];
 }
 
+interface MonthlyNoteI{
+    monthDashID: string;
+    note: string;
+}
+
 const taskSchema = new mongoose.Schema({
   monthDashID: {
     type: mongoose.Types.ObjectId,
@@ -55,6 +60,11 @@ dateLogSchema.index(
   { unique: true }
 );
 
+const monthNoteSchema = new mongoose.Schema({
+    monthDashID: { type: mongoose.Types.ObjectId, ref: "MonthDashboard", index: true, required: true, unique: true },
+    note: String,
+});
+
 export const TaskModel =
   mongoose.model<TaskI>(
     "Task",
@@ -65,4 +75,10 @@ export const DateLogModel =
   mongoose.model<DateLogI>(
     "DateLog",
     dateLogSchema
+  );
+
+export const MonthNoteModel =
+  mongoose.model<MonthlyNoteI>(
+    "MonthNote",
+    monthNoteSchema
   );
