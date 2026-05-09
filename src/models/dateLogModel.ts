@@ -11,74 +11,119 @@ interface DateLogI {
   tasks: string[];
 }
 
-interface MonthlyNoteI{
-    monthDashID: string;
-    note: string;
+interface MonthlyNoteI {
+  monthDashID: string;
+  note: string;
 }
 
-const taskSchema = new mongoose.Schema({
-  monthDashID: {
-    type: mongoose.Types.ObjectId,
-    ref: "Month",
-    required: true,
-    index: true
+interface MonthlyTargetsI {
+  monthDashID: string;
+  targets: { _id: string; value: string, completed: boolean }[];
+}
+
+const taskSchema = new mongoose.Schema(
+  {
+    monthDashID: {
+      type: mongoose.Types.ObjectId,
+      ref: "Month",
+      required: true,
+      index: true,
+    },
+
+    taskName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
-
-  taskName: {
-    type: String,
-    trim: true,
-    default: ""
-  }
-
-}, { timestamps: true });
-
-const dateLogSchema = new mongoose.Schema({
-
-  monthDashID: {
-    type: mongoose.Types.ObjectId,
-    ref: "Month",
-    required: true,
-    index: true
-  },
-
-  fullDate: {
-    type: Date,
-    required: true
-  },
-
-  // stores only completed task IDs
-  tasks: {
-    type: [mongoose.Types.ObjectId],
-    ref: "Task",
-    default: []
-  }
-
-}, { timestamps: true });
-
-dateLogSchema.index(
-  { monthDashID: 1, fullDate: 1 },
-  { unique: true }
+  { timestamps: true },
 );
 
+const dateLogSchema = new mongoose.Schema(
+  {
+    monthDashID: {
+      type: mongoose.Types.ObjectId,
+      ref: "Month",
+      required: true,
+      index: true,
+    },
+
+    fullDate: {
+      type: Date,
+      required: true,
+    },
+
+    // stores only completed task IDs
+    tasks: {
+      type: [mongoose.Types.ObjectId],
+      ref: "Task",
+      default: [],
+    },
+  },
+  { timestamps: true },
+);
+
+dateLogSchema.index({ monthDashID: 1, fullDate: 1 }, { unique: true });
+
 const monthNoteSchema = new mongoose.Schema({
-    monthDashID: { type: mongoose.Types.ObjectId, ref: "MonthDashboard", index: true, required: true, unique: true },
-    note: String,
+  monthDashID: {
+    type: mongoose.Types.ObjectId,
+    ref: "MonthDashboard",
+    index: true,
+    required: true,
+    unique: true,
+  },
+  note: String,
 });
 
-export const TaskModel =
-  mongoose.model<TaskI>(
-    "Task",
-    taskSchema
-  );
+const monthlyTargetSchema = new mongoose.Schema({
+  monthDashID: {
+    type: mongoose.Types.ObjectId,
+    ref: "MonthDashboard",
+    required: true,
+    index: true,
+  },
 
-export const DateLogModel =
-  mongoose.model<DateLogI>(
-    "DateLog",
-    dateLogSchema
-  );
+  targets: {
+    type: [
+      {
+        _id: {
+          type: mongoose.Types.ObjectId,
+          auto: true,
+        },
 
-export const MonthNoteModel =
-  mongoose.model<MonthlyNoteI>(
-    "MonthNote",
-    monthNoteSchema
-  );
+        value: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+
+        completed: {
+          type: Boolean,
+          default: false
+        }
+      },
+    ],
+    validate: [
+      (arr: { value: string }[]) => arr.length <= 10,
+
+      "Max 10 targets allowed",
+    ],
+  },
+});
+
+monthlyTargetSchema.index({ monthDashID: 1 }, { unique: true });
+
+export const TaskModel = mongoose.model<TaskI>("Task", taskSchema);
+
+export const DateLogModel = mongoose.model<DateLogI>("DateLog", dateLogSchema);
+
+export const MonthNoteModel = mongoose.model<MonthlyNoteI>(
+  "MonthNote",
+  monthNoteSchema,
+);
+
+export const MonthlyTargetsModel = mongoose.model<MonthlyTargetsI>(
+  "MonthlyTargets",
+  monthlyTargetSchema,
+);

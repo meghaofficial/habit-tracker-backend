@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { MonthModel } from "../models/dashboardModel";
-import { DateLogModel, MonthNoteModel } from "../models/dateLogModel";
+import {
+  DateLogModel,
+  MonthlyTargetsModel,
+  MonthNoteModel,
+} from "../models/dateLogModel";
 import { TaskModel } from "../models/dateLogModel";
 
 export const getDateLog = async (req: Request, res: Response) => {
@@ -430,13 +434,8 @@ function calculateProgress(
   };
 }
 
-export const getMonthlyNote = async (
-  req: Request,
-  res: Response
-) => {
-
+export const getMonthlyNote = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
 
     if (!userID) {
@@ -446,45 +445,35 @@ export const getMonthlyNote = async (
       });
     }
 
-    const monthDashID =
-      req.query.monthDashID as string;
+    const monthDashID = req.query.monthDashID as string;
 
     if (!monthDashID) {
       return res.status(400).json({
         success: false,
-        message: "Month Dashboard ID is required"
+        message: "Month Dashboard ID is required",
       });
     }
 
-    const note =
-      await MonthNoteModel.findOne({
-        monthDashID
-      }).lean();
+    const note = await MonthNoteModel.findOne({
+      monthDashID,
+    }).lean();
 
     return res.status(200).json({
       success: true,
-      note
+      note,
     });
-
   } catch (error) {
-
     console.error(error);
 
     return res.status(500).json({
       success: false,
       message: "Something went wrong",
     });
-
   }
 };
 
-export const updateMonthlyNote = async (
-  req: Request,
-  res: Response
-) => {
-
+export const updateMonthlyNote = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
 
     if (!userID) {
@@ -494,35 +483,261 @@ export const updateMonthlyNote = async (
       });
     }
 
-    const monthDashID =
-      req.query.monthDashID as string;
+    const monthDashID = req.query.monthDashID as string;
 
     const { note } = req.body;
 
     if (!monthDashID) {
       return res.status(400).json({
         success: false,
-        message: "Month Dashboard ID is required"
+        message: "Month Dashboard ID is required",
       });
     }
 
-    const updatedNote = await MonthNoteModel.findOneAndUpdate({ monthDashID },{ $set: { note } },
-        { new: true, upsert: true }
-      );
+    const updatedNote = await MonthNoteModel.findOneAndUpdate(
+      { monthDashID },
+      { $set: { note } },
+      { new: true, upsert: true },
+    );
 
     return res.status(200).json({
       success: true,
-      note: updatedNote
+      note: updatedNote,
     });
-
   } catch (error) {
-
     console.error(error);
 
     return res.status(500).json({
       success: false,
       message: "Something went wrong",
     });
+  }
+};
 
+export const getMonthlyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID is required",
+      });
+    }
+
+    const targets = await MonthlyTargetsModel.findOne({
+      monthDashID,
+    }).lean();
+
+    return res.status(200).json({
+      success: true,
+      monthlyTargets: targets,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const addMonthlyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+
+    const { target } = req.body;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID is required",
+      });
+    }
+
+    const newTarget = await MonthlyTargetsModel.findOneAndUpdate(
+      { monthDashID },
+      { $push: { targets: { value: target } } },
+      { new: true, upsert: true },
+    );
+
+    return res.status(200).json({
+      success: true,
+      target: newTarget,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const removeMonthlyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+    const targetID = req.query.targetID as string;
+
+    if (!monthDashID || !targetID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID is required",
+      });
+    }
+
+    await MonthlyTargetsModel.findOneAndUpdate(
+      { monthDashID },
+      { $pull: { targets: { _id: targetID } } },
+      { new: true },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Removed target successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const updateMonthlyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+    const targetID = req.query.targetID as string;
+
+    const { target } = req.body;
+
+    if (!monthDashID || !targetID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID and targetID are required",
+      });
+    }
+
+    const updated = await MonthlyTargetsModel.findOneAndUpdate(
+      { monthDashID, "targets._id": targetID },
+      { $set: { "targets.$.value": target } },
+      { new: true },
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Target not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      target: updated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const markMonthlyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+    const targetID = req.query.targetID as string;
+
+    const { mark } = req.body;
+
+    if (typeof mark !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "Mark must be boolean",
+      });
+    }
+
+    if (!monthDashID || !targetID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID and targetID are required",
+      });
+    }
+
+    const updated = await MonthlyTargetsModel.findOneAndUpdate(
+      { monthDashID, "targets._id": targetID },
+      { $set: { "targets.$.completed": mark } },
+      { new: true },
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Target not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      target: updated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
   }
 };
