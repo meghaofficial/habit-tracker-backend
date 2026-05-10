@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { canAccessDashboard } from "../middlewares/dashboardMiddleware";
 import { isAuthorized } from "../middlewares/authMiddleware";
-import { getDateLog, markTask, addTask, getTask, removeTask, updateTask, getMonthlyNote, updateMonthlyNote, getMonthlyTargets, addMonthlyTargets, updateMonthlyTargets, removeMonthlyTargets, markMonthlyTargets } from "../controllers/dateLogController";
+import { getDateLog, markTask, addTask, getTask, removeTask, updateTask, getMonthlyNote, updateMonthlyNote, getMonthlyTargets, addMonthlyTargets, updateMonthlyTargets, removeMonthlyTargets, markMonthlyTargets, getWeeklyTargets, addWeeklyTargets, updateWeeklyTargets, removeWeeklyTargets, markWeeklyTargets } from "../controllers/dateLogController";
 
 const router = Router();
 
@@ -24,5 +24,11 @@ router.patch("/add-monthly-target", isAuthorized, canAccessDashboard, addMonthly
 router.patch("/remove-monthly-target", isAuthorized, canAccessDashboard, removeMonthlyTargets);
 router.patch("/update-monthly-target", isAuthorized, canAccessDashboard, updateMonthlyTargets);
 router.patch("/mark-monthly-target", isAuthorized, canAccessDashboard, markMonthlyTargets);
+
+router.get("/weekly-targets", isAuthorized, canAccessDashboard, getWeeklyTargets);
+router.patch("/add-weekly-target", isAuthorized, canAccessDashboard, addWeeklyTargets);
+router.patch("/remove-weekly-target", isAuthorized, canAccessDashboard, removeWeeklyTargets);
+router.patch("/update-weekly-target", isAuthorized, canAccessDashboard, updateWeeklyTargets);
+router.patch("/mark-weekly-target", isAuthorized, canAccessDashboard, markWeeklyTargets);
 
 export const dateLogRoute = router;
