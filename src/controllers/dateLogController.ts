@@ -45,7 +45,7 @@ export const getDateLog = async (req: Request, res: Response) => {
     if (existingLogs.length === 0) {
       const logsToCreate = Array.from({ length: totalDays }, (_, i) => ({
         monthDashID,
-        fullDate: new Date(year, month - 1, i + 1),
+        fullDate: new Date(Date.UTC(year, month, i + 1)),
         tasks: [],
       }));
 
@@ -241,13 +241,21 @@ export const markTask = async (req: Request, res: Response) => {
       });
     }
 
-    const normalizedDate = new Date(fullDate);
+    // new Date(Date.UTC(year, month, i + 1))
 
-    normalizedDate.setHours(0, 0, 0, 0);
+    const dateObj = new Date(fullDate);
+    const year = dateObj.getUTCFullYear();
+const month = dateObj.getUTCMonth();
+const day = dateObj.getUTCDate();
+const normalizedUtcDate = new Date(Date.UTC(year, month, day));
+
+    // const normalizedDate = new Date(fullDate);
+
+    // normalizedDate.setHours(0, 0, 0, 0);
 
     const filter = {
       monthDashID,
-      fullDate: normalizedDate,
+      fullDate: normalizedUtcDate,
     };
 
     const update = marked
@@ -257,7 +265,7 @@ export const markTask = async (req: Request, res: Response) => {
           },
           $setOnInsert: {
             monthDashID,
-            fullDate: normalizedDate,
+            fullDate: normalizedUtcDate,
           },
         }
       : {
@@ -266,7 +274,7 @@ export const markTask = async (req: Request, res: Response) => {
           },
           $setOnInsert: {
             monthDashID,
-            fullDate: normalizedDate,
+            fullDate: normalizedUtcDate,
           },
         };
 
