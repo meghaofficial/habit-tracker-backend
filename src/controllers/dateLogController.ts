@@ -97,6 +97,14 @@ export const addTask = async (req: Request, res: Response) => {
     const monthDashID = req.query.monthDashID as string;
     const { taskName } = req.body;
 
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID and taskName are required",
+      });
+    }
+
+    // count tasks
     const totalTasks = await TaskModel.countDocuments({
       monthDashID,
     });
@@ -108,18 +116,33 @@ export const addTask = async (req: Request, res: Response) => {
       });
     }
 
+    // create task
     await TaskModel.create({
       monthDashID,
-      taskName,
+      taskName: taskName.trim(),
     });
 
-    const allTasks = await TaskModel.find({
-      monthDashID,
-    });
+    // run queries in parallel
+    const [allTasks, existingLogs] = await Promise.all([
+      TaskModel.find({ monthDashID }).lean(),
+
+      DateLogModel.find({ monthDashID }).lean(),
+    ]);
+
+    const taskIDs = allTasks.map((task) => task._id.toString());
+
+    const progress = calculateProgress(
+      existingLogs.map((log) => ({
+        fullDate: log.fullDate,
+        tasks: log.tasks.map((task) => task.toString()),
+      })),
+      taskIDs
+    );
 
     return res.status(201).json({
       success: true,
       tasks: allTasks,
+      progress,
     });
   } catch (error) {
     console.error(error);
@@ -173,17 +196,52 @@ export const markTask = async (req: Request, res: Response) => {
       });
     }
 
-    const { monthDashID, fullDate, taskID } = req.query;
+    const monthDashID = req.query.monthDashID as string;
+    const fullDate = req.query.fullDate as string;
+    const taskID = req.query.taskID as string;
+
     const { marked } = req.body;
 
-    if (!monthDashID || !fullDate || !taskID) {
+    if (
+      !monthDashID ||
+      !fullDate ||
+      !taskID ||
+      typeof marked !== "boolean"
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Required fields missing.",
+        message: "Required fields missing",
       });
     }
 
-    const normalizedDate = new Date(fullDate as string);
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(taskID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Task ID",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const normalizedDate = new Date(fullDate);
 
     normalizedDate.setHours(0, 0, 0, 0);
 
@@ -191,18 +249,6 @@ export const markTask = async (req: Request, res: Response) => {
       monthDashID,
       fullDate: normalizedDate,
     };
-
-    //   const update = marked
-    // ? {
-    //     $addToSet: {
-    //       tasks: taskID,
-    //     },
-    //   }
-    // : {
-    //     $pull: {
-    //       tasks: taskID,
-    //     },
-    //   };
 
     const update = marked
       ? {
@@ -224,23 +270,32 @@ export const markTask = async (req: Request, res: Response) => {
           },
         };
 
-    const updatedDateLog = await DateLogModel.findOneAndUpdate(filter, update, {
-      new: true,
-      upsert: true,
-    }).lean();
+    const updatedDateLog = await DateLogModel.findOneAndUpdate(
+      filter,
+      update,
+      {
+        new: true,
+        upsert: true,
+      }
+    ).lean();
 
-    let existingLogs = await DateLogModel.find({ monthDashID }).lean();
+    // parallel queries
+    const [existingLogs, tasks] = await Promise.all([
+      DateLogModel.find({ monthDashID }).lean(),
 
-    const tasks = await TaskModel.find({
-      monthDashID,
-    }).lean();
+      TaskModel.find({ monthDashID })
+        .select("_id")
+        .lean(),
+    ]);
+
     const taskIDs = tasks.map((t) => t._id.toString());
+
     const progress = calculateProgress(
       existingLogs.map((log) => ({
         fullDate: log.fullDate,
         tasks: log.tasks.map((task) => task.toString()),
       })),
-      taskIDs,
+      taskIDs
     );
 
     return res.status(200).json({
@@ -279,6 +334,33 @@ export const removeTask = async (req: Request, res: Response) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(taskID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Task ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
     const deletedTask = await TaskModel.findOneAndDelete({
       _id: taskID,
       monthDashID,
@@ -291,20 +373,39 @@ export const removeTask = async (req: Request, res: Response) => {
       });
     }
 
+    // remove task references from logs
     await DateLogModel.updateMany(
       { monthDashID },
       {
         $pull: {
           tasks: taskID,
         },
-      },
+      }
     );
 
-    const remainingTasks = await TaskModel.find({ monthDashID });
+    // parallel queries
+    const [remainingTasks, existingLogs] = await Promise.all([
+      TaskModel.find({ monthDashID }).lean(),
+
+      DateLogModel.find({ monthDashID }).lean(),
+    ]);
+
+    const taskIDs = remainingTasks.map((task) =>
+      task._id.toString()
+    );
+
+    const progress = calculateProgress(
+      existingLogs.map((log) => ({
+        fullDate: log.fullDate,
+        tasks: log.tasks.map((task) => task.toString()),
+      })),
+      taskIDs
+    );
 
     return res.status(200).json({
       success: true,
       tasks: remainingTasks,
+      progress,
     });
   } catch (error) {
     console.error(error);

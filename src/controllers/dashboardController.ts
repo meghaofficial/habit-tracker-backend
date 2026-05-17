@@ -14,48 +14,29 @@ export const getDashboard = async (req: Request, res: Response) => {
 
     const currDate = new Date();
     const currYear = currDate.getFullYear();
-    const currMonth = currDate.getMonth() + 1;
+    const currMonth = currDate.getMonth();
 
     const year = Number(req.query.year) || currYear;
     const month = Number(req.query.month) || currMonth;
 
     const existingMonth = await MonthModel.findOne({ userID, year, month });
     if (!existingMonth) {
-      const newMonth = MonthModel.create({
+      const newMonth = await MonthModel.create({
         userID,
         year,
         month,
-        totalDays: new Date(year, month, 0).getDate(),
-        firstDay: new Date(year, month - 1, 1).getDay()
+        totalDays: new Date(year, month+1, 0).getDate(),
+        firstDay: new Date(year, month, 1).getDay()
       });
       return res.status(201).json({
         success: true,
-        monthData: newMonth
+        monthData: newMonth,
       });
     }
     return res.status(200).json({
       success: true,
-      monthData: existingMonth
+      monthData: existingMonth,
     });
-
-    // const monthData = await MonthModel.findOneAndUpdate(
-    //   { userID, year, month },
-    //   {
-    //     $setOnInsert: {
-    //       userID,
-    //       year,
-    //       month,
-    //       totalDays: new Date(year, month, 0).getDate(),
-    //       firstDay: new Date(year, month - 1, 1).getDay()
-    //     }
-    //   },
-    //   { new: true, upsert: true }
-    // );
-
-    // return res.status(200).json({
-    //   success: true,
-    //   data: monthData
-    // });
 
   } catch (error) {
     console.error(error);
