@@ -79,7 +79,7 @@ const monthNoteSchema = new mongoose.Schema({
     unique: true,
   },
   note: String,
-});
+}, { timestamps: true });
 
 const monthlyTargetSchema = new mongoose.Schema({
   monthDashID: {
