@@ -8,6 +8,7 @@ import { dashboardRoute } from './routes/dashboardRoute';
 import { dateLogRoute } from './routes/dateRoute';
 import cors from 'cors';
 import cookieParser from "cookie-parser";
+import { analysisRoute } from './routes/analysisRoute';
 
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -55,6 +56,6 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Hello');
 });
 app.use("/auth", userRoute);
-app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute]);
+app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute, analysisRoute]);
 
 app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));

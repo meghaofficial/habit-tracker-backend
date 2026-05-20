@@ -40,7 +40,7 @@ export const getDateLog = async (req: Request, res: Response) => {
 
     const { month, year, totalDays } = monthDetail;
 
-    let existingLogs = await DateLogModel.find({ monthDashID }).lean();
+    let existingLogs = await DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean();
 
     if (existingLogs.length === 0) {
       const logsToCreate = Array.from({ length: totalDays }, (_, i) => ({
@@ -53,7 +53,7 @@ export const getDateLog = async (req: Request, res: Response) => {
         ordered: false,
       });
 
-      existingLogs = await DateLogModel.find({ monthDashID }).lean();
+      existingLogs = await DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean();
     }
 
     const tasks = await TaskModel.find({
@@ -126,7 +126,7 @@ export const addTask = async (req: Request, res: Response) => {
     const [allTasks, existingLogs] = await Promise.all([
       TaskModel.find({ monthDashID }).lean(),
 
-      DateLogModel.find({ monthDashID }).lean(),
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
     ]);
 
     const taskIDs = allTasks.map((task) => task._id.toString());
@@ -136,7 +136,7 @@ export const addTask = async (req: Request, res: Response) => {
         fullDate: log.fullDate,
         tasks: log.tasks.map((task) => task.toString()),
       })),
-      taskIDs
+      taskIDs,
     );
 
     return res.status(201).json({
@@ -202,12 +202,7 @@ export const markTask = async (req: Request, res: Response) => {
 
     const { marked } = req.body;
 
-    if (
-      !monthDashID ||
-      !fullDate ||
-      !taskID ||
-      typeof marked !== "boolean"
-    ) {
+    if (!monthDashID || !fullDate || !taskID || typeof marked !== "boolean") {
       return res.status(400).json({
         success: false,
         message: "Required fields missing",
@@ -245,9 +240,9 @@ export const markTask = async (req: Request, res: Response) => {
 
     const dateObj = new Date(fullDate);
     const year = dateObj.getUTCFullYear();
-const month = dateObj.getUTCMonth();
-const day = dateObj.getUTCDate();
-const normalizedUtcDate = new Date(Date.UTC(year, month, day));
+    const month = dateObj.getUTCMonth();
+    const day = dateObj.getUTCDate();
+    const normalizedUtcDate = new Date(Date.UTC(year, month, day));
 
     // const normalizedDate = new Date(fullDate);
 
@@ -278,22 +273,16 @@ const normalizedUtcDate = new Date(Date.UTC(year, month, day));
           },
         };
 
-    const updatedDateLog = await DateLogModel.findOneAndUpdate(
-      filter,
-      update,
-      {
-        new: true,
-        upsert: true,
-      }
-    ).lean();
+    const updatedDateLog = await DateLogModel.findOneAndUpdate(filter, update, {
+      new: true,
+      upsert: true,
+    }).lean();
 
     // parallel queries
     const [existingLogs, tasks] = await Promise.all([
-      DateLogModel.find({ monthDashID }).lean(),
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
 
-      TaskModel.find({ monthDashID })
-        .select("_id")
-        .lean(),
+      TaskModel.find({ monthDashID }).select("_id").lean(),
     ]);
 
     const taskIDs = tasks.map((t) => t._id.toString());
@@ -303,7 +292,7 @@ const normalizedUtcDate = new Date(Date.UTC(year, month, day));
         fullDate: log.fullDate,
         tasks: log.tasks.map((task) => task.toString()),
       })),
-      taskIDs
+      taskIDs,
     );
 
     return res.status(200).json({
@@ -388,26 +377,24 @@ export const removeTask = async (req: Request, res: Response) => {
         $pull: {
           tasks: taskID,
         },
-      }
+      },
     );
 
     // parallel queries
     const [remainingTasks, existingLogs] = await Promise.all([
       TaskModel.find({ monthDashID }).lean(),
 
-      DateLogModel.find({ monthDashID }).lean(),
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
     ]);
 
-    const taskIDs = remainingTasks.map((task) =>
-      task._id.toString()
-    );
+    const taskIDs = remainingTasks.map((task) => task._id.toString());
 
     const progress = calculateProgress(
       existingLogs.map((log) => ({
         fullDate: log.fullDate,
         tasks: log.tasks.map((task) => task.toString()),
       })),
-      taskIDs
+      taskIDs,
     );
 
     return res.status(200).json({
@@ -852,9 +839,6 @@ export const markMonthlyTargets = async (req: Request, res: Response) => {
   }
 };
 
-
-
-
 export const getWeeklyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -985,7 +969,7 @@ export const addWeeklyTargets = async (req: Request, res: Response) => {
         upsert: true,
         runValidators: true,
         setDefaultsOnInsert: true,
-      }
+      },
     );
 
     return res.status(200).json({
@@ -1072,7 +1056,7 @@ export const removeWeeklyTargets = async (req: Request, res: Response) => {
       },
       {
         new: true,
-      }
+      },
     );
 
     if (!updatedDoc) {
@@ -1177,7 +1161,7 @@ export const updateWeeklyTargets = async (req: Request, res: Response) => {
       {
         new: true,
         runValidators: true,
-      }
+      },
     );
 
     if (!updated) {
@@ -1280,7 +1264,7 @@ export const markWeeklyTargets = async (req: Request, res: Response) => {
       },
       {
         new: true,
-      }
+      },
     );
 
     if (!updated) {
@@ -1294,6 +1278,71 @@ export const markWeeklyTargets = async (req: Request, res: Response) => {
       success: true,
       target: updated,
     });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const resetDatelog = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    const existingLogs = await DateLogModel.exists({
+      monthDashID
+    });
+
+    if (!existingLogs) {
+      return res.status(404).json({
+        success: false,
+        message: "No log found",
+      });
+    }
+
+    await DateLogModel.updateMany(
+      { monthDashID },
+      {
+        $set: {
+          tasks: []
+        }
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Reset Successfully",
+    });
+
   } catch (error) {
     console.error(error);
 

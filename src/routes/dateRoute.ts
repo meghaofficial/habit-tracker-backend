@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { canAccessDashboard } from "../middlewares/dashboardMiddleware";
 import { isAuthorized } from "../middlewares/authMiddleware";
-import { getDateLog, markTask, addTask, getTask, removeTask, updateTask, getMonthlyNote, updateMonthlyNote, getMonthlyTargets, addMonthlyTargets, updateMonthlyTargets, removeMonthlyTargets, markMonthlyTargets, getWeeklyTargets, addWeeklyTargets, updateWeeklyTargets, removeWeeklyTargets, markWeeklyTargets } from "../controllers/dateLogController";
+import { getDateLog, markTask, addTask, getTask, removeTask, updateTask, getMonthlyNote, updateMonthlyNote, getMonthlyTargets, addMonthlyTargets, updateMonthlyTargets, removeMonthlyTargets, markMonthlyTargets, getWeeklyTargets, addWeeklyTargets, updateWeeklyTargets, removeWeeklyTargets, markWeeklyTargets, resetDatelog } from "../controllers/dateLogController";
 
 const router = Router();
 
@@ -30,5 +30,7 @@ router.patch("/add-weekly-target", isAuthorized, canAccessDashboard, addWeeklyTa
 router.patch("/remove-weekly-target", isAuthorized, canAccessDashboard, removeWeeklyTargets);
 router.patch("/update-weekly-target", isAuthorized, canAccessDashboard, updateWeeklyTargets);
 router.patch("/mark-weekly-target", isAuthorized, canAccessDashboard, markWeeklyTargets);
+
+router.patch("/reset-date-log", isAuthorized, canAccessDashboard, resetDatelog);
 
 export const dateLogRoute = router;
