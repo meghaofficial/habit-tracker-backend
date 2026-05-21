@@ -186,6 +186,42 @@ export const getMonthlyActivity = async (req: Request, res: Response) => {
   }
 };
 
+export const getLogByDate = async (req: Request, res: Response) => {
+  try {
+
+    const fullDate = req.query.fullDate as string;
+    const monthDashID = req.query.monthDashID as string;
+
+    if (!monthDashID || !fullDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields missing",
+      });
+    }
+
+    const dateLog = await DateLogModel.findOne({ monthDashID, fullDate });
+
+    if (!dateLog){
+      return res.status(404).json({
+        success: false,
+        message: "Log not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      dateLog
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error"
+    })
+  }
+}
+
 // export const getTodayActivity = async (req: Request, res: Response) => {
 //   try {
 
