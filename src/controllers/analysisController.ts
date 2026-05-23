@@ -188,7 +188,6 @@ export const getMonthlyActivity = async (req: Request, res: Response) => {
 
 export const getLogByDate = async (req: Request, res: Response) => {
   try {
-
     const fullDate = req.query.fullDate as string;
     const monthDashID = req.query.monthDashID as string;
 
@@ -201,7 +200,7 @@ export const getLogByDate = async (req: Request, res: Response) => {
 
     const dateLog = await DateLogModel.findOne({ monthDashID, fullDate });
 
-    if (!dateLog){
+    if (!dateLog) {
       return res.status(404).json({
         success: false,
         message: "Log not found",
@@ -210,17 +209,173 @@ export const getLogByDate = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      dateLog
+      dateLog,
     });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: "Internal Server Error"
-    })
+      message: "Internal Server Error",
+    });
   }
-}
+};
+
+export const getStreakWithMoreData = async (req: Request, res: Response) => {
+  try {
+    const monthDashID = req.query.monthDashID as string;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields missing",
+      });
+    }
+
+    const tasks = await TaskModel.find({ monthDashID }).lean();
+    const totalTasks = tasks.length;
+
+    const logs = await DateLogModel.find({ monthDashID })
+      .sort({ fullDate: 1 })
+      .lean();
+
+    if (!logs || logs.length === 0) {
+      return res.status(200).json({
+        success: true,
+        streak: 0,
+        longestStreak: 0,
+        mostConsistentHabits: [],
+        leastConsistentHabits: [],
+      });
+    }
+
+    // Streak Logic
+
+    const completedDaysSet = new Set<string>();
+    logs.forEach((log: any) => {
+      const completedTasks = log?.tasks?.length || 0;
+
+      if (completedTasks === totalTasks) {
+        const date = new Date(log.fullDate);
+        const dateKey = date.toISOString().split("T")[0];
+
+        completedDaysSet.add(dateKey);
+      }
+    });
+    let currentStreak = 0;
+    const today = new Date();
+    while (true) {
+      const tempDate = new Date(today);
+
+      tempDate.setDate(today.getDate() - currentStreak);
+
+      const dateKey = tempDate.toISOString().split("T")[0];
+
+      if (completedDaysSet.has(dateKey)) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+    let longestStreak = 0;
+    let running = 0;
+
+    const sortedDates = [...completedDaysSet].sort();
+
+    for (let i = 0; i < sortedDates.length; i++) {
+      if (i === 0) {
+        running = 1;
+      } else {
+        const prev = new Date(sortedDates[i - 1]);
+        const curr = new Date(sortedDates[i]);
+
+        const diff = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
+
+        if (diff === 1) {
+          running++;
+        } else {
+          running = 1;
+        }
+      }
+
+      longestStreak = Math.max(longestStreak, running);
+    }
+
+    // taskID -> count
+    const taskFollowCount: Record<string, number> = {};
+
+    // initialize all tasks with 0
+    tasks.forEach((task: any) => {
+      taskFollowCount[task._id.toString()] = 0;
+    });
+
+    // count occurrences
+    logs.forEach((log: any) => {
+      const completedTasks = log?.tasks || [];
+
+      completedTasks.forEach((task: any) => {
+        const taskID =
+          typeof task === "string"
+            ? task
+            : task?._id?.toString?.() || task?.toString?.();
+
+        if (taskID && taskFollowCount[taskID] !== undefined) {
+          taskFollowCount[taskID]++;
+        }
+      });
+    });
+
+    const counts = Object.values(taskFollowCount);
+
+    const maxCount = Math.max(...counts);
+    const minCount = Math.min(...counts);
+
+    let mostConsistentHabits: string[] = [];
+    let leastConsistentHabits: string[] = [];
+
+    // condition:
+    // all habits = 0
+    if (maxCount === 0 && minCount === 0) {
+      mostConsistentHabits = [];
+      leastConsistentHabits = [];
+    }
+
+    // condition:
+    // all habits followed for all days
+    else if (maxCount === logs.length && minCount === logs.length) {
+      mostConsistentHabits = ["All"];
+      leastConsistentHabits = ["All"];
+    } else {
+      tasks.forEach((task: any) => {
+        const count = taskFollowCount[task._id.toString()];
+
+        if (count === maxCount) {
+          mostConsistentHabits.push(task.taskName);
+        }
+
+        if (count === minCount) {
+          leastConsistentHabits.push(task.taskName);
+        }
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        streak: currentStreak,
+        longestStreak,
+        mostConsistentHabits,
+        leastConsistentHabits,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
 
 // export const getTodayActivity = async (req: Request, res: Response) => {
 //   try {
