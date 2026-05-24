@@ -7,6 +7,7 @@ import {
   WeeklyTargetsModel,
 } from "../models/dateLogModel";
 import { TaskModel } from "../models/dateLogModel";
+import mongoose from "mongoose";
 
 export const getDateLog = async (req: Request, res: Response) => {
   try {
@@ -39,13 +40,12 @@ export const getDateLog = async (req: Request, res: Response) => {
 
     const { month, year, totalDays } = monthDetail;
 
-    let existingLogs = await DateLogModel.find({ monthDashID }).lean();
+    let existingLogs = await DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean();
 
     if (existingLogs.length === 0) {
       const logsToCreate = Array.from({ length: totalDays }, (_, i) => ({
-        userID,
         monthDashID,
-        fullDate: new Date(year, month - 1, i + 1),
+        fullDate: new Date(Date.UTC(year, month, i + 1)),
         tasks: [],
       }));
 
@@ -53,7 +53,7 @@ export const getDateLog = async (req: Request, res: Response) => {
         ordered: false,
       });
 
-      existingLogs = await DateLogModel.find({ monthDashID }).lean();
+      existingLogs = await DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean();
     }
 
     const tasks = await TaskModel.find({
@@ -97,6 +97,14 @@ export const addTask = async (req: Request, res: Response) => {
     const monthDashID = req.query.monthDashID as string;
     const { taskName } = req.body;
 
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID and taskName are required",
+      });
+    }
+
+    // count tasks
     const totalTasks = await TaskModel.countDocuments({
       monthDashID,
     });
@@ -108,18 +116,33 @@ export const addTask = async (req: Request, res: Response) => {
       });
     }
 
+    // create task
     await TaskModel.create({
       monthDashID,
-      taskName,
+      taskName: taskName.trim(),
     });
 
-    const allTasks = await TaskModel.find({
-      monthDashID,
-    });
+    // run queries in parallel
+    const [allTasks, existingLogs] = await Promise.all([
+      TaskModel.find({ monthDashID }).lean(),
+
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
+    ]);
+
+    const taskIDs = allTasks.map((task) => task._id.toString());
+
+    const progress = calculateProgress(
+      existingLogs.map((log) => ({
+        fullDate: log.fullDate,
+        tasks: log.tasks.map((task) => task.toString()),
+      })),
+      taskIDs,
+    );
 
     return res.status(201).json({
       success: true,
       tasks: allTasks,
+      progress,
     });
   } catch (error) {
     console.error(error);
@@ -173,36 +196,62 @@ export const markTask = async (req: Request, res: Response) => {
       });
     }
 
-    const { monthDashID, fullDate, taskID } = req.query;
+    const monthDashID = req.query.monthDashID as string;
+    const fullDate = req.query.fullDate as string;
+    const taskID = req.query.taskID as string;
+
     const { marked } = req.body;
 
-    if (!monthDashID || !fullDate || !taskID) {
+    if (!monthDashID || !fullDate || !taskID || typeof marked !== "boolean") {
       return res.status(400).json({
         success: false,
-        message: "Required fields missing.",
+        message: "Required fields missing",
       });
     }
 
-    const normalizedDate = new Date(fullDate as string);
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
 
-    normalizedDate.setHours(0, 0, 0, 0);
+    if (!mongoose.Types.ObjectId.isValid(taskID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Task ID",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    // new Date(Date.UTC(year, month, i + 1))
+
+    const dateObj = new Date(fullDate);
+    const year = dateObj.getUTCFullYear();
+    const month = dateObj.getUTCMonth();
+    const day = dateObj.getUTCDate();
+    const normalizedUtcDate = new Date(Date.UTC(year, month, day));
+
+    // const normalizedDate = new Date(fullDate);
+
+    // normalizedDate.setHours(0, 0, 0, 0);
 
     const filter = {
       monthDashID,
-      fullDate: normalizedDate,
+      fullDate: normalizedUtcDate,
     };
-
-    //   const update = marked
-    // ? {
-    //     $addToSet: {
-    //       tasks: taskID,
-    //     },
-    //   }
-    // : {
-    //     $pull: {
-    //       tasks: taskID,
-    //     },
-    //   };
 
     const update = marked
       ? {
@@ -211,7 +260,7 @@ export const markTask = async (req: Request, res: Response) => {
           },
           $setOnInsert: {
             monthDashID,
-            fullDate: normalizedDate,
+            fullDate: normalizedUtcDate,
           },
         }
       : {
@@ -220,7 +269,7 @@ export const markTask = async (req: Request, res: Response) => {
           },
           $setOnInsert: {
             monthDashID,
-            fullDate: normalizedDate,
+            fullDate: normalizedUtcDate,
           },
         };
 
@@ -229,12 +278,15 @@ export const markTask = async (req: Request, res: Response) => {
       upsert: true,
     }).lean();
 
-    let existingLogs = await DateLogModel.find({ monthDashID }).lean();
+    // parallel queries
+    const [existingLogs, tasks] = await Promise.all([
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
 
-    const tasks = await TaskModel.find({
-      monthDashID,
-    }).lean();
+      TaskModel.find({ monthDashID }).select("_id").lean(),
+    ]);
+
     const taskIDs = tasks.map((t) => t._id.toString());
+
     const progress = calculateProgress(
       existingLogs.map((log) => ({
         fullDate: log.fullDate,
@@ -279,6 +331,33 @@ export const removeTask = async (req: Request, res: Response) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(taskID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Task ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
     const deletedTask = await TaskModel.findOneAndDelete({
       _id: taskID,
       monthDashID,
@@ -291,6 +370,7 @@ export const removeTask = async (req: Request, res: Response) => {
       });
     }
 
+    // remove task references from logs
     await DateLogModel.updateMany(
       { monthDashID },
       {
@@ -300,11 +380,27 @@ export const removeTask = async (req: Request, res: Response) => {
       },
     );
 
-    const remainingTasks = await TaskModel.find({ monthDashID });
+    // parallel queries
+    const [remainingTasks, existingLogs] = await Promise.all([
+      TaskModel.find({ monthDashID }).lean(),
+
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
+    ]);
+
+    const taskIDs = remainingTasks.map((task) => task._id.toString());
+
+    const progress = calculateProgress(
+      existingLogs.map((log) => ({
+        fullDate: log.fullDate,
+        tasks: log.tasks.map((task) => task.toString()),
+      })),
+      taskIDs,
+    );
 
     return res.status(200).json({
       success: true,
       tasks: remainingTasks,
+      progress,
     });
   } catch (error) {
     console.error(error);
@@ -743,11 +839,6 @@ export const markMonthlyTargets = async (req: Request, res: Response) => {
   }
 };
 
-
-
-
-
-
 export const getWeeklyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -760,16 +851,32 @@ export const getWeeklyTargets = async (req: Request, res: Response) => {
     }
 
     const monthDashID = req.query.monthDashID as string;
+    const week = Number(req.query.week);
 
-    if (!monthDashID) {
+    if (!monthDashID || !week) {
       return res.status(400).json({
         success: false,
-        message: "Month Dashboard ID is required",
+        message: "Month Dashboard ID & week no are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (week < 1 || week > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Week must be between 1 and 5",
       });
     }
 
     const targets = await WeeklyTargetsModel.findOne({
       monthDashID,
+      week,
     }).lean();
 
     return res.status(200).json({
@@ -786,44 +893,462 @@ export const getWeeklyTargets = async (req: Request, res: Response) => {
   }
 };
 
-// export const addWeeklyTargets = async (req: Request, res: Response) => {
-//   try {
-//     const userID = (req as any).user?.id;
+export const addWeeklyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
 
-//     if (!userID) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Unauthorized",
-//       });
-//     }
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
 
-//     const monthDashID = req.query.monthDashID as string;
+    const monthDashID = req.query.monthDashID as string;
+    const week = Number(req.query.week);
 
-//     const { target, week } = req.body;
+    const { target } = req.body;
 
-//     if (!monthDashID) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Month Dashboard ID is required",
-//       });
-//     }
+    // validations
+    if (!monthDashID || !week || !target) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID, week & target are required",
+      });
+    }
 
-//     const newTarget = await WeeklyTargetsModel.findOneAndUpdate(
-//       { monthDashID },
-//       { $push: { targets: { value: target } } },
-//       { new: true, upsert: true },
-//     );
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
 
-//     return res.status(200).json({
-//       success: true,
-//       target: newTarget,
-//     });
-//   } catch (error) {
-//     console.error(error);
+    if (week < 1 || week > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Week must be between 1 and 5",
+      });
+    }
 
-//     return res.status(500).json({
-//       success: false,
-//       message: "Something went wrong",
-//     });
-//   }
-// };
+    if (typeof target !== "string" || !target.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Target must be a valid string",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    // add target
+    const updatedTarget = await WeeklyTargetsModel.findOneAndUpdate(
+      {
+        monthDashID,
+        week,
+      },
+      {
+        $push: {
+          targets: {
+            value: target.trim(),
+          },
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+
+    return res.status(200).json({
+      success: true,
+      target: updatedTarget,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const removeWeeklyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+    const week = Number(req.query.week);
+    const targetID = req.query.targetID as string;
+
+    if (!monthDashID || !week || !targetID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID, week & target ID are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(targetID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Target ID",
+      });
+    }
+
+    if (week < 1 || week > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Week must be between 1 and 5",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const updatedDoc = await WeeklyTargetsModel.findOneAndUpdate(
+      {
+        monthDashID,
+        week,
+      },
+      {
+        $pull: {
+          targets: {
+            _id: targetID,
+          },
+        },
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (!updatedDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Weekly targets not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Removed target successfully",
+      target: updatedDoc,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const updateWeeklyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+    const week = Number(req.query.week);
+    const targetID = req.query.targetID as string;
+
+    const { target } = req.body;
+
+    // validations
+    if (!monthDashID || !week || !targetID || !target) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID, week, targetID and target are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(targetID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Target ID",
+      });
+    }
+
+    if (week < 1 || week > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Week must be between 1 and 5",
+      });
+    }
+
+    if (typeof target !== "string" || !target.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Target must be a valid string",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const updated = await WeeklyTargetsModel.findOneAndUpdate(
+      {
+        monthDashID,
+        week,
+        "targets._id": targetID,
+      },
+      {
+        $set: {
+          "targets.$.value": target.trim(),
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Target not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      target: updated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const markWeeklyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+    const week = Number(req.query.week);
+    const targetID = req.query.targetID as string;
+
+    const { mark } = req.body;
+
+    // validations
+    if (typeof mark !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "Mark must be boolean",
+      });
+    }
+
+    if (!monthDashID || !week || !targetID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID, week and targetID are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(targetID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Target ID",
+      });
+    }
+
+    if (week < 1 || week > 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Week must be between 1 and 5",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const updated = await WeeklyTargetsModel.findOneAndUpdate(
+      {
+        monthDashID,
+        week,
+        "targets._id": targetID,
+      },
+      {
+        $set: {
+          "targets.$.completed": mark,
+        },
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Target not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      target: updated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const resetDatelog = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const userID = (req as any).user?.id;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    const existingLogs = await DateLogModel.exists({
+      monthDashID
+    });
+
+    if (!existingLogs) {
+      return res.status(404).json({
+        success: false,
+        message: "No log found",
+      });
+    }
+
+    await DateLogModel.updateMany(
+      { monthDashID },
+      {
+        $set: {
+          tasks: []
+        }
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Reset Successfully",
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};

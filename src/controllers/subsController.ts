@@ -166,12 +166,13 @@ export const getActiveSubscription = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      subscription: {
-        planType: activeSub.planType,
-        startDate: activeSub.startDate,
-        endDate: activeSub.endDate,
-        status: activeSub.status
-      }
+      // subscription: {
+      //   planType: activeSub.planType,
+      //   startDate: activeSub.startDate,
+      //   endDate: activeSub.endDate,
+      //   status: activeSub.status
+      // },
+      subscription: activeSub
     });
 
   } catch (error) {
@@ -183,4 +184,31 @@ export const getActiveSubscription = async (req: Request, res: Response) => {
   }
 }
 
-export const getSubsHistory = async (req: Request, res: Response) => { }
+export const getAllSubscription = async (req: Request, res: Response) => {
+  try {
+
+    const userID = (req as any).user?.id;
+    const subs = await Subscription.find({
+      userID,
+    }).populate("planType startDate endDate status");
+
+    if (!subs) {
+      return res.status(404).json({
+        success: false,
+        message: "No subscription found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      subscriptions: subs
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+}

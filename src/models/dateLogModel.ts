@@ -51,7 +51,6 @@ const dateLogSchema = new mongoose.Schema(
       type: mongoose.Types.ObjectId,
       ref: "Month",
       required: true,
-      index: true,
     },
 
     fullDate: {
@@ -80,14 +79,13 @@ const monthNoteSchema = new mongoose.Schema({
     unique: true,
   },
   note: String,
-});
+}, { timestamps: true });
 
 const monthlyTargetSchema = new mongoose.Schema({
   monthDashID: {
     type: mongoose.Types.ObjectId,
     ref: "MonthDashboard",
     required: true,
-    index: true,
   },
 
   targets: {
@@ -159,6 +157,8 @@ const weeklyTargetSchema = new mongoose.Schema({
     ],
   },
 });
+
+weeklyTargetSchema.index({ monthDashID: 1, week: 1 }, { unique: true });
 
 export const TaskModel = mongoose.model<TaskI>("Task", taskSchema);
 
