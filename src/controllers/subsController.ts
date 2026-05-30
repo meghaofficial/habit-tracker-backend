@@ -54,17 +54,16 @@ export const createSubscription = async (req: Request, res: Response) => {
       startDate.setDate(startDate.getUTCDate() + 1);
       startDate.setUTCHours(0, 0, 0, 0);
     }
+
     const totalMonths = Number(planDetails.no_of_months);
     const endDate = new Date(
-      Date.UTC(
-        startDate.getUTCFullYear(),
-        startDate.getUTCMonth() + totalMonths,
-        0,
-        23,
-        59,
-        59,
-        999,
-      ),
+      startDate.getFullYear(),
+      startDate.getMonth() + totalMonths,
+      0,
+      23,
+      59,
+      59,
+      999,
     );
 
     if (planDetails.planType === "free") {
@@ -72,6 +71,7 @@ export const createSubscription = async (req: Request, res: Response) => {
         userID,
         planID,
         planType: "free",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         startDate,
         endDate,
         status: activeSubs ? "scheduled" : "active",
@@ -89,6 +89,7 @@ export const createSubscription = async (req: Request, res: Response) => {
         userID,
         planID,
         planType: "paid",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         startDate,
         endDate,
         status: activeSubs ? "scheduled" : "active",

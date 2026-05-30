@@ -4,20 +4,18 @@ import { MonthModel } from "../models/dashboardModel";
 export const getDashboard = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const subscription = (req as any).subscription;
 
-    if (!userID) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized"
-      });
-    }
-
-    const currDate = new Date();
+    const currDate = subscription.startDate;
     const currYear = currDate.getFullYear();
     const currMonth = currDate.getMonth();
 
-    const year = Number(req.query.year) || currYear;
-    const month = Number(req.query.month) || currMonth;
+    const year =
+      req.query.year !== undefined ? Number(req.query.year) : currYear;
+    const month =
+      req.query.month !== undefined ? Number(req.query.month) : currMonth;
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
 
     const existingMonth = await MonthModel.findOne({ userID, year, month });
     if (!existingMonth) {
@@ -25,8 +23,8 @@ export const getDashboard = async (req: Request, res: Response) => {
         userID,
         year,
         month,
-        totalDays: new Date(year, month+1, 0).getDate(),
-        firstDay: new Date(year, month, 1).getDay()
+        totalDays,
+        firstDay,
       });
       return res.status(201).json({
         success: true,
@@ -37,13 +35,12 @@ export const getDashboard = async (req: Request, res: Response) => {
       success: true,
       monthData: existingMonth,
     });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
       message: "Something went wrong",
-      error
+      error,
     });
   }
 };

@@ -18,6 +18,10 @@ const subscriptionSchema = new mongoose.Schema({
     enum: ["free", "paid"],
     required: true,
   },
+  timezone: {
+    type: String,
+    required: true
+  },
   startDate: {
     type: Date,
     required: true
