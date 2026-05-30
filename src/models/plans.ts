@@ -1,11 +1,5 @@
 import mongoose from "mongoose";
-
-interface PlanI {
-  planName: string; // monthly, yearly, quarterly, half-yearly
-  planType: string;  // free, paid
-  no_of_months: number;
-  amount: number;
-}
+import { PlanI } from "../types";
 
 const planSchema = new mongoose.Schema({
   planName: {
@@ -25,6 +19,11 @@ const planSchema = new mongoose.Schema({
   amount: {
     type: Number,
     default: 0
+  },
+  description: {
+    type: String,
+    trim: true,
+    required: true
   }
 });
 

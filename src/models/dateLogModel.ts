@@ -1,31 +1,5 @@
 import mongoose from "mongoose";
-
-interface TaskI {
-  monthDashID: string;
-  taskName: string;
-}
-
-interface DateLogI {
-  monthDashID: string;
-  fullDate: Date;
-  tasks: string[];
-}
-
-interface MonthlyNoteI {
-  monthDashID: string;
-  note: string;
-}
-
-interface MonthlyTargetsI {
-  monthDashID: string;
-  targets: { _id: string; value: string, completed: boolean }[];
-}
-
-interface WeeklyTargetsI {
-  monthDashID: string;
-  week: number;
-  targets: { _id: string; value: string, completed: boolean }[];
-}
+import { DateLogI, MonthlyNoteI, MonthlyTargetsI, TaskI, WeeklyTargetsI } from "../types";
 
 const taskSchema = new mongoose.Schema(
   {

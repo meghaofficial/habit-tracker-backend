@@ -13,35 +13,6 @@ import { analysisRoute } from './routes/analysisRoute';
 const PORT = process.env.PORT || 8080;
 const app = express();
 
-// const startServer = async () => {
-//   try {
-//     // 1. Wait for DB first
-//     await connectDB(process.env.DB_URI || "");
-
-//     // 2. Setup Middleware & Routes
-//     app.use(cors({
-//       origin: 'http://localhost:5173',
-//       credentials: true
-//     }));
-//     app.use(cookieParser());
-//     app.use(express.json());
-//     app.use(express.urlencoded({ extended: true }));
-
-//     app.get('/', (req, res) => res.send('Hello'));
-//     app.use("/auth", userRoute);
-//     app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute]);
-
-//     // 3. Start Listening
-//     app.listen(PORT, () => console.log(`🚀 listening on PORT - ${PORT}`));
-
-//   } catch (error) {
-//     console.error("Failed to start server:", error);
-//     process.exit(1);
-//   }
-// };
-
-// startServer();
-
 await connectDB(process.env.DB_URI || "");
 
 app.use(cors({

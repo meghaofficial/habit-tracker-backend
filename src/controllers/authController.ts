@@ -3,9 +3,6 @@ import User from "../models/authModel";
 import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
 import crypto from "crypto";
-import { MonthModel } from "../models/dashboardModel";
-import mongoose, { Types } from "mongoose";
-import { calcFullDate, createTaskData } from "../helper/utils";
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -214,7 +211,7 @@ export const logout = async (req: Request, res: Response) => {
 
     if (user) {
       user.refreshTokens = user.refreshTokens.filter(
-        (rt: any) => rt.token !== token
+        (rt: any) => rt.token !== token,
       );
 
       await user.save();
@@ -241,7 +238,7 @@ export const logout = async (req: Request, res: Response) => {
 export const refreshToken = async (req: Request, res: Response) => {
   const token = req.cookies.refreshToken;
 
-  if (!token) return res.status(401).json({ message: "No token available" });
+  if (!token) return res.status(401).json({ success: false, message: "No token available" });
 
   try {
     const decoded: any = jwt.verify(
@@ -266,12 +263,6 @@ export const refreshToken = async (req: Request, res: Response) => {
         .clearCookie("refreshToken")
         .json({ message: "Invalid or expired token" });
     }
-
-    // // remove used token
-    // user.refreshTokens = user.refreshTokens.filter((t) => t.token !== token);
-
-    // // add new token
-    // user.refreshTokens.push(newTokenObject);
 
     const newAccessToken = jwt.sign(
       { id: user._id },

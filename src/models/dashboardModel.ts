@@ -1,12 +1,6 @@
 import mongoose from "mongoose";
+import { MonthDashboardI } from "../types";
 
-interface MonthDashboardI {
-  userID: string;
-  month: number;
-  year: number;
-  totalDays: number;
-  firstDay: number;    // storing which day is on the first date of month
-};
 const monthDashboardSchema = new mongoose.Schema({
   userID: { type: mongoose.Types.ObjectId, ref: "User", index: true, required: true },
   month: { type: Number, required: true },
