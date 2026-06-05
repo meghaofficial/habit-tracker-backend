@@ -119,8 +119,15 @@ export const getActiveSubscription = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
     const subscription = await Subscription.findOne({
-      userID,
-    }).sort({ endDate: -1 });
+      userID, status: "active"
+    });
+
+    if (!subscription){
+      return res.status(404).json({
+        success: false,
+        message: "No subscription found",
+      })
+    }
 
     return res.status(200).json({
       success: true,

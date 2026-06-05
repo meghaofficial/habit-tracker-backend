@@ -9,9 +9,14 @@ import { dateLogRoute } from './routes/dateRoute';
 import cors from 'cors';
 import cookieParser from "cookie-parser";
 import { analysisRoute } from './routes/analysisRoute';
+import http from "http";
+import { initSocket } from "./socket/socket";
 
 const PORT = process.env.PORT || 8080;
 const app = express();
+
+const server = http.createServer(app);
+initSocket(server);
 
 await connectDB(process.env.DB_URI || "");
 
@@ -23,10 +28,14 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (res: Response) => {
   res.send('Hello');
 });
 app.use("/auth", userRoute);
 app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute, analysisRoute]);
 
-app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`listening on PORT - ${PORT}`);
+});
+
+// app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));
