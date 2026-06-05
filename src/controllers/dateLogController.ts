@@ -614,6 +614,12 @@ export const updateMonthlyNote = async (req: Request, res: Response) => {
       { new: true, upsert: true },
     );
 
+    const io = getIO();
+
+    io.to(userID).emit("update-monthly-note", {
+      note: updatedNote,
+    });
+
     return res.status(200).json({
       success: true,
       note: updatedNote,
@@ -694,6 +700,12 @@ export const addMonthlyTargets = async (req: Request, res: Response) => {
       { new: true, upsert: true },
     );
 
+    const io = getIO();
+
+    io.to(userID).emit("add-monthly-target", {
+      target: newTarget,
+    });
+
     return res.status(200).json({
       success: true,
       target: newTarget,
@@ -729,11 +741,17 @@ export const removeMonthlyTargets = async (req: Request, res: Response) => {
       });
     }
 
-    await MonthlyTargetsModel.findOneAndUpdate(
+    const updated = await MonthlyTargetsModel.findOneAndUpdate(
       { monthDashID },
       { $pull: { targets: { _id: targetID } } },
       { new: true },
     );
+
+    const io = getIO();
+
+    io.to(userID).emit("remove-monthly-target", {
+      target: updated,
+    });
 
     return res.status(200).json({
       success: true,
@@ -841,6 +859,12 @@ export const markMonthlyTargets = async (req: Request, res: Response) => {
         message: "Target not found",
       });
     }
+
+    const io = getIO();
+
+    io.to(userID).emit("mark-monthly-target", {
+      target: updated,
+    });
 
     return res.status(200).json({
       success: true,
