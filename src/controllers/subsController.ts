@@ -118,21 +118,32 @@ export const createSubscription = async (req: Request, res: Response) => {
 export const getActiveSubscription = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
-    const subscription = await Subscription.findOne({
-      userID, status: "active"
+
+    const activeSubs = await Subscription.findOne({
+      userID,
+      status: "active",
+      endDate: { $gt: new Date() }
     });
 
-    if (!subscription){
+    const freeUsed = await Subscription.exists({
+      userID,
+      planType: "free"
+    });
+
+    if (!activeSubs) {
       return res.status(404).json({
         success: false,
-        message: "No subscription found",
-      })
+        message: "No active subscription",
+        hasUsedFree: !!freeUsed
+      });
     }
 
     return res.status(200).json({
       success: true,
-      subscription,
+      subscription: activeSubs,
+      hasUsedFree: !!freeUsed
     });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({
