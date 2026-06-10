@@ -6,9 +6,9 @@ export const getDashboard = async (req: Request, res: Response) => {
     const userID = (req as any).user?.id;
     const subscription = (req as any).subscription;
 
-    const currDate = subscription.startDate;
-    const currYear = currDate.getFullYear();
-    const currMonth = currDate.getMonth();
+    const currDate = new Date(subscription.startDate);
+    const currYear = currDate.getUTCFullYear();
+    const currMonth = currDate.getUTCMonth();
 
     const year =
       req.query.year !== undefined ? Number(req.query.year) : currYear;

@@ -131,10 +131,11 @@ export const getActiveSubscription = async (req: Request, res: Response) => {
     });
 
     if (!activeSubs) {
-      return res.status(404).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         message: "No active subscription",
-        hasUsedFree: !!freeUsed
+        hasUsedFree: !!freeUsed,
+        subscription: null
       });
     }
 
