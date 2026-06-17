@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { otpTemplate } from "../emails/otp-signup.template";
 import { sendEmail } from "../services/email.service";
 import OTP from "../models/otpModel";
+import { passwordChangedTemplate } from "../emails/successful-pwd-change.template";
 
 function generateOTP() {
   return crypto.randomInt(100000, 1000000).toString();
@@ -411,6 +412,12 @@ export const changePassword = async (req: Request, res: Response) => {
 
     user.password = await bcrypt.hash(new_password, 10);
     await user.save();
+
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset Successfully",
+      html: passwordChangedTemplate(user.username),
+    });
 
     res.status(200).json({
       success: true,
