@@ -9,8 +9,8 @@ interface IRefreshToken {
 const RefreshTokenSchema = new mongoose.Schema({
   token: { type: String },
   createdAt: { type: Date },
-  expiresAt: { type: Date }
-})
+  expiresAt: { type: Date },
+});
 
 interface IUser {
   username: string;
@@ -19,22 +19,45 @@ interface IUser {
   provider?: "local" | "google" | "github" | "twitter";
   providerId?: string; // id from OAuth provider
   refreshTokens: IRefreshToken[];
-  resetPasswordToken?: string,
-  resetPasswordExpire?: Date,
-  role?: string,
+  resetPasswordToken?: string;
+  resetPasswordExpire?: Date;
+  role?: string;
 }
 
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, trim: true },
-  email: { type: String, required: true, trim: true, unique: true, lowercase: true },
-  password: { type: String, trim: true },
-  provider: { type: String, enum: ["local", "google", "github", "twitter"], default: "local" },
-  providerId: { type: String },
-  refreshTokens: [RefreshTokenSchema],
-  resetPasswordToken: { type: String },
-  resetPasswordExpire: { type: Date },
-  role: { type: String, default: "user", trim: true, enum: ["user", "admin"], lowercase: true },
-}, { timestamps: true });
+const userSchema = new mongoose.Schema(
+  {
+    username: { type: String, required: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+      lowercase: true,
+    },
+    password: { type: String, trim: true },
+    provider: {
+      type: String,
+      enum: ["local", "google", "github", "twitter"],
+      default: "local",
+    },
+    providerId: { type: String },
+    refreshTokens: [RefreshTokenSchema],
+    resetPasswordToken: { type: String },
+    resetPasswordExpire: { type: Date },
+    role: {
+      type: String,
+      default: "user",
+      trim: true,
+      enum: ["user", "admin"],
+      lowercase: true,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { timestamps: true },
+);
 
 const User = mongoose.model<IUser>("User", userSchema);
 

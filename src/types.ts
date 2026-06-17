@@ -51,3 +51,12 @@ export interface WeeklyTargetsI {
   week: number;
   targets: { _id: string; value: string, completed: boolean }[];
 }
+
+export interface IOtp {
+  email: string;
+  username?: string;
+  password?: string;
+  otp: string;
+  type: string;
+  expiresAt: Date;
+}

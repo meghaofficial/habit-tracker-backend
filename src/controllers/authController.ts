@@ -3,6 +3,13 @@ import User from "../models/authModel";
 import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
 import crypto from "crypto";
+import { otpTemplate } from "../emails/otp-signup.template";
+import { sendEmail } from "../services/email.service";
+import OTP from "../models/otpModel";
+
+function generateOTP() {
+  return crypto.randomInt(100000, 1000000).toString();
+}
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -23,18 +30,35 @@ export const signup = async (req: Request, res: Response) => {
       });
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const otp = generateOTP();
+    const [hashedPassword, hashedOTP] = await Promise.all([
+      bcrypt.hash(password, salt),
+      bcrypt.hash(otp, salt),
+    ]);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // for 10 min only
 
-    const newUser = new User({
-      username,
+    await OTP.deleteMany({
       email,
-      password: hashedPassword,
+      type: "signup",
     });
-    await newUser.save();
+    await OTP.create({
+      email,
+      username,
+      password: hashedPassword,
+      otp: hashedOTP,
+      type: "signup",
+      expiresAt,
+    });
+
+    await sendEmail({
+      to: email,
+      subject: "Verify your account",
+      html: otpTemplate(username, otp),
+    });
 
     return res.status(201).json({
       success: true,
-      message: "Registered Successfully",
+      message: "OTP sent",
     });
   } catch (error) {
     console.error(error);
@@ -44,6 +68,55 @@ export const signup = async (req: Request, res: Response) => {
     });
   }
 };
+
+// NOT IN USE
+// export const resendSignupOtp = async (
+//   req: Request,
+//   res: Response
+// ) => {
+//   const { email } = req.body;
+
+//   const otpDoc = await OTP.findOne({
+//     email,
+//     type: "signup",
+//   });
+
+//   if (!otpDoc) {
+//     return res.status(404).json({
+//       success: false,
+//       message: "OTP record not found",
+//     });
+//   }
+
+//   if (otpDoc.resendCount >= 5) {
+//     return res.status(429).json({
+//       success: false,
+//       message: "Maximum OTP resend limit reached",
+//     });
+//   }
+
+//   const otp = generateOTP();
+
+//   otpDoc.otp = await bcrypt.hash(otp, 10);
+//   otpDoc.expiresAt = new Date(
+//     Date.now() + 10 * 60 * 1000
+//   );
+
+//   otpDoc.resendCount += 1;
+
+//   await otpDoc.save();
+
+//   await sendEmail({
+//     to: email,
+//     subject: "Verify your account",
+//     html: otpTemplate(otpDoc.username, otp),
+//   });
+
+//   return res.status(200).json({
+//     success: true,
+//     message: "OTP resent successfully",
+//   });
+// };
 
 export const updateRole = async (req: Request, res: Response) => {
   try {
@@ -238,7 +311,7 @@ export const logout = async (req: Request, res: Response) => {
 export const refreshToken = async (req: Request, res: Response) => {
   const token = req.cookies.refreshToken;
 
-  if (!token) return res.status(401).json({ success: false, message: "No token available" });
+  if (!token) return res.status(401).json({});
 
   try {
     const decoded: any = jwt.verify(
@@ -250,9 +323,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     );
 
     if (!user) {
-      return res
-        .status(403)
-        .json({ success: false, message: "User does not exists" });
+      return res.status(403).json({});
     }
 
     const tokenData = user.refreshTokens.find((t) => t.token === token);
