@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Plan from "../models/plans";
 import Subscription from "../models/subscription";
+import { sendEmail } from "../services/email.service";
 
 const handlePayment = async (amount: number) => {
   try {
@@ -96,6 +97,13 @@ export const createSubscription = async (req: Request, res: Response) => {
         paymentStatus: "paid",
       });
 
+      // send email
+      // await sendEmail({
+      //   to: email,
+      //   subject: "Forgot password",
+      //   html: resetPasswordOTPTemplate(email, otp),
+      // });
+
       return res.status(201).json({
         success: true,
         message: "Subscription Successful",
@@ -154,10 +162,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 //   }
 // };
 
-export const getActiveSubscription = async (
-  req: Request,
-  res: Response
-) => {
+export const getActiveSubscription = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
 
@@ -174,7 +179,7 @@ export const getActiveSubscription = async (
         $set: {
           status: "expired",
         },
-      }
+      },
     );
 
     const [activeSubs, freeUsed] = await Promise.all([
@@ -213,7 +218,7 @@ export const getActiveSubscription = async (
       },
       {
         new: true,
-      }
+      },
     ).populate("planID");
 
     if (activatedSub) {
@@ -245,7 +250,7 @@ export const getAllSubscription = async (req: Request, res: Response) => {
     const userID = (req as any).user?.id;
     const subs = await Subscription.find({
       userID,
-    }).populate("planType startDate endDate status");
+    }).select("planType startDate endDate status");
 
     if (!subs) {
       return res.status(404).json({
