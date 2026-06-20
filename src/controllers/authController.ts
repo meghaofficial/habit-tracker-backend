@@ -7,6 +7,7 @@ import { otpTemplate } from "../emails/otp-signup.template";
 import { sendEmail } from "../services/email.service";
 import OTP from "../models/otpModel";
 import { passwordChangedTemplate } from "../emails/successful-pwd-change.template";
+import { resetPasswordOTPTemplate } from "../emails/otp-pwd-reset.template";
 
 function generateOTP() {
   return crypto.randomInt(100000, 1000000).toString();
@@ -69,55 +70,6 @@ export const signup = async (req: Request, res: Response) => {
     });
   }
 };
-
-// NOT IN USE
-// export const resendSignupOtp = async (
-//   req: Request,
-//   res: Response
-// ) => {
-//   const { email } = req.body;
-
-//   const otpDoc = await OTP.findOne({
-//     email,
-//     type: "signup",
-//   });
-
-//   if (!otpDoc) {
-//     return res.status(404).json({
-//       success: false,
-//       message: "OTP record not found",
-//     });
-//   }
-
-//   if (otpDoc.resendCount >= 5) {
-//     return res.status(429).json({
-//       success: false,
-//       message: "Maximum OTP resend limit reached",
-//     });
-//   }
-
-//   const otp = generateOTP();
-
-//   otpDoc.otp = await bcrypt.hash(otp, 10);
-//   otpDoc.expiresAt = new Date(
-//     Date.now() + 10 * 60 * 1000
-//   );
-
-//   otpDoc.resendCount += 1;
-
-//   await otpDoc.save();
-
-//   await sendEmail({
-//     to: email,
-//     subject: "Verify your account",
-//     html: otpTemplate(otpDoc.username, otp),
-//   });
-
-//   return res.status(200).json({
-//     success: true,
-//     message: "OTP resent successfully",
-//   });
-// };
 
 export const updateRole = async (req: Request, res: Response) => {
   try {
@@ -445,15 +397,32 @@ export const forgotPassword = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "User does not exists" });
 
-    const token = crypto.randomBytes(32).toString("hex");
+    const salt = await bcrypt.genSalt(10);
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, salt);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // for 10 min only
 
-    user.resetPasswordToken = token;
-    user.resetPasswordExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    await OTP.deleteMany({
+      email,
+      type: "forgot-password",
+    });
+    await OTP.create({
+      email,
+      otp: hashedOTP,
+      type: "forgot-password",
+      expiresAt,
+    });
 
-    await user.save();
-    res.status(200).json({ success: true, message: "OTP sent" });
+    await sendEmail({
+      to: email,
+      subject: "Forgot password",
+      html: resetPasswordOTPTemplate(email, otp),
+    });
 
-    // send email with token (link or OTP)
+    res.status(200).json({
+      success: true,
+      message: "OTP has been sent to your registered email id",
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -465,25 +434,36 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { token, new_password } = req.body;
+    const { email, new_password } = req.body;
 
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpire: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return res.status(400).json({ message: "Invalid or expired token" });
+    if (!email) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Email is required" });
     }
 
-    user.password = await bcrypt.hash(new_password, 10);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(new_password, salt);
 
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
+    const updatedUser = await User.findOneAndUpdate(
+      { email },
+      { $set: { password: hashedPassword } },
+    );
 
-    await user.save();
+    if (!updatedUser)
+      return res
+        .status(404)
+        .json({ success: false, message: "User does not exists" });
 
-    res.json({ success: true, message: "Password reset successful" });
+    await sendEmail({
+      to: email,
+      subject: "Password Change",
+      html: passwordChangedTemplate(updatedUser.username),
+    });
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password changed successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({
