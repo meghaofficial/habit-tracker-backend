@@ -1,20 +1,18 @@
 import { Request, Response } from "express";
 import Plan from "../models/plans";
 import Subscription from "../models/subscription";
-import { getEndOfMonth } from "../helper/utils";
+import { sendEmail } from "../services/email.service";
 
 const handlePayment = async (amount: number) => {
   try {
-
     // code for payment
     const isPaymentDone = true;
 
     return isPaymentDone ? amount : null;
-
   } catch (error) {
     console.error(error);
   }
-}
+};
 
 export const createSubscription = async (req: Request, res: Response) => {
   try {
@@ -23,101 +21,99 @@ export const createSubscription = async (req: Request, res: Response) => {
 
     const currDate = new Date();
 
-    // 1. Get plan
-    const planDetails = await Plan.findById(planID);
+    const [planDetails, subscriptions] = await Promise.all([
+      Plan.findById(planID).lean(),
+      Subscription.find({ userID }).sort({ endDate: -1 }).lean(),
+    ]);
     if (!planDetails) {
       return res.status(404).json({
         success: false,
-        message: "Plan not found"
+        message: "Plan not found",
       });
     }
 
-    // 2. Check free usage (only matters for free plan)
-    const hasFreeSub = await Subscription.exists({
-      userID,
-      planType: "free",
-    });
+    const hasFreeSub = subscriptions.some((sub) => sub.planType === "free");
 
     if (planDetails.planType === "free" && hasFreeSub) {
       return res.status(409).json({
         success: false,
-        message: "You have already used your free trial"
+        message: "You have already used your free trial",
       });
     }
 
-    // 3. Check active subscription or latest subscription scheduled
-    const activeSubs = await Subscription.findOne({
-      userID,
-      status: "active"
-    });
-    const lastSubscription = await Subscription.findOne({
-      userID,
-      status: { $in: ["active", "scheduled"] }
-    }).sort({ endDate: -1 });
+    const activeSubs = subscriptions.find((sub) => sub.status === "active");
 
-    // 4. Calculate startDate
+    const lastSubscription = subscriptions.find((sub) =>
+      ["active", "scheduled", "expired"].includes(sub.status),
+    );
+
     let startDate = currDate;
 
-    if (lastSubscription) {
+    if (lastSubscription && lastSubscription.status !== "expired") {
       const currSubsEnd = new Date(lastSubscription.endDate);
-
       startDate = new Date(currSubsEnd);
-      startDate.setDate(startDate.getDate() + 1);
-      startDate.setHours(0, 0, 0, 0);
+      startDate.setDate(startDate.getUTCDate() + 1);
+      startDate.setUTCHours(0, 0, 0, 0);
     }
 
-    // 5. Calculate endDate
     const totalMonths = Number(planDetails.no_of_months);
     const endDate = new Date(
       startDate.getFullYear(),
       startDate.getMonth() + totalMonths,
-      0
+      0,
+      23,
+      59,
+      59,
+      999,
     );
 
-    // 6. Handle FREE plan
     if (planDetails.planType === "free") {
       await Subscription.create({
         userID,
         planID,
         planType: "free",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         startDate,
         endDate,
         status: activeSubs ? "scheduled" : "active",
-        paymentStatus: "free"
+        paymentStatus: "free",
       });
-
       return res.status(201).json({
         success: true,
-        message: "Free subscription activated"
+        message: "Free subscription activated",
       });
     }
 
-    // 7. Handle PAID plan
     try {
       await handlePayment(amount);
-
       await Subscription.create({
         userID,
         planID,
         planType: "paid",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         startDate,
         endDate,
         status: activeSubs ? "scheduled" : "active",
-        paymentStatus: "paid"
+        paymentStatus: "paid",
       });
+
+      // send email
+      // await sendEmail({
+      //   to: email,
+      //   subject: "Forgot password",
+      //   html: resetPasswordOTPTemplate(email, otp),
+      // });
 
       return res.status(201).json({
         success: true,
-        message: "Subscription Successful"
+        message: "Subscription Successful",
       });
-
     } catch (err) {
       return res.status(400).json({
         success: false,
-        message: "Payment failed"
+        message: "Payment failed",
       });
     }
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -127,83 +123,146 @@ export const createSubscription = async (req: Request, res: Response) => {
   }
 };
 
-export const hasUsedFree = async (req: Request, res: Response) => {
-  try {
-    const userID = (req as any).user?.id;
-    const hasFreeSub = await Subscription.exists({
-      userID,
-      planType: "free",
-    });
+// export const getActiveSubscription = async (req: Request, res: Response) => {
+//   try {
+//     const userID = (req as any).user?.id;
 
-    return res.status(200).json({
-      success: true,
-      hasUsedFree: !!hasFreeSub
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-}
+//     const activeSubs = await Subscription.findOne({
+//       userID,
+//       status: "active",
+//       endDate: { $gt: new Date() }
+//     });
+
+//     const freeUsed = await Subscription.exists({
+//       userID,
+//       planType: "free"
+//     });
+
+//     if (!activeSubs) {
+//       return res.status(200).json({
+//         success: true,
+//         message: "No active subscription",
+//         hasUsedFree: !!freeUsed,
+//         subscription: null
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       subscription: activeSubs,
+//       hasUsedFree: !!freeUsed
+//     });
+
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
 
 export const getActiveSubscription = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
-    const activeSub = await Subscription.findOne({
-      userID,
-      status: "active"
-    }).populate("planType startDate endDate status");
 
-    if (!activeSub) {
-      return res.status(404).json({
-        success: false,
-        message: "No active subscription found"
+    const now = new Date();
+
+    // Mark expired active subscriptions
+    await Subscription.updateMany(
+      {
+        userID,
+        status: "active",
+        endDate: { $lte: now },
+      },
+      {
+        $set: {
+          status: "expired",
+        },
+      },
+    );
+
+    const [activeSubs, freeUsed] = await Promise.all([
+      Subscription.findOne({
+        userID,
+        status: "active",
+        endDate: { $gt: now },
+      }).populate("planID"),
+
+      Subscription.exists({
+        userID,
+        planType: "free",
+      }),
+    ]);
+
+    // Active subscription exists
+    if (activeSubs) {
+      return res.status(200).json({
+        success: true,
+        subscription: activeSubs,
+        hasUsedFree: !!freeUsed,
+      });
+    }
+
+    // Activate scheduled subscription whose start date has arrived
+    const activatedSub = await Subscription.findOneAndUpdate(
+      {
+        userID,
+        status: "scheduled",
+        startDate: { $lte: now },
+      },
+      {
+        $set: {
+          status: "active",
+        },
+      },
+      {
+        new: true,
+      },
+    ).populate("planID");
+
+    if (activatedSub) {
+      return res.status(200).json({
+        success: true,
+        subscription: activatedSub,
+        hasUsedFree: !!freeUsed,
       });
     }
 
     return res.status(200).json({
       success: true,
-      // subscription: {
-      //   planType: activeSub.planType,
-      //   startDate: activeSub.startDate,
-      //   endDate: activeSub.endDate,
-      //   status: activeSub.status
-      // },
-      subscription: activeSub
+      subscription: null,
+      hasUsedFree: !!freeUsed,
+      message: "No active subscription",
     });
-
   } catch (error) {
     console.error(error);
+
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
     });
   }
-}
+};
 
 export const getAllSubscription = async (req: Request, res: Response) => {
   try {
-
     const userID = (req as any).user?.id;
     const subs = await Subscription.find({
       userID,
-    }).populate("planType startDate endDate status");
+    }).select("planType startDate endDate status");
 
     if (!subs) {
       return res.status(404).json({
         success: false,
-        message: "No subscription found"
+        message: "No subscription found",
       });
     }
 
     return res.status(200).json({
       success: true,
-      subscriptions: subs
+      subscriptions: subs,
     });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -211,4 +270,4 @@ export const getAllSubscription = async (req: Request, res: Response) => {
       message: "Internal Server Error",
     });
   }
-}
+};

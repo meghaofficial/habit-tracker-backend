@@ -1,49 +1,101 @@
 import { Request, Response } from "express";
 import { MonthModel } from "../models/dashboardModel";
 
-export const getDashboard = async (req: Request, res: Response) => {
+export const getDashboard = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const userID = (req as any).user?.id;
+    const subscription = (req as any).subscription;
 
-    if (!userID) {
-      return res.status(401).json({
+    const today = new Date();
+
+    const currYear = today.getUTCFullYear();
+    const currMonth = today.getUTCMonth();
+
+    const year =
+      req.query.year !== undefined
+        ? Number(req.query.year)
+        : currYear;
+
+    const month =
+      req.query.month !== undefined
+        ? Number(req.query.month)
+        : currMonth;
+
+    const requestedDate = new Date(
+      Date.UTC(year, month, 1)
+    );
+
+    const subscriptionStart = new Date(
+      subscription.startDate
+    );
+
+    subscriptionStart.setUTCDate(1);
+    subscriptionStart.setUTCHours(0, 0, 0, 0);
+
+    const subscriptionEnd = new Date(
+      subscription.endDate
+    );
+
+    subscriptionEnd.setUTCDate(1);
+    subscriptionEnd.setUTCHours(0, 0, 0, 0);
+
+    if (
+      requestedDate < subscriptionStart ||
+      requestedDate > subscriptionEnd
+    ) {
+      return res.status(403).json({
         success: false,
-        message: "Unauthorized"
+        message:
+          "This month is outside your subscription period",
       });
     }
 
-    const currDate = new Date();
-    const currYear = currDate.getFullYear();
-    const currMonth = currDate.getMonth();
+    const totalDays = new Date(
+      year,
+      month + 1,
+      0
+    ).getDate();
 
-    const year = Number(req.query.year) || currYear;
-    const month = Number(req.query.month) || currMonth;
+    const firstDay = new Date(
+      year,
+      month,
+      1
+    ).getDay();
 
-    const existingMonth = await MonthModel.findOne({ userID, year, month });
-    if (!existingMonth) {
-      const newMonth = await MonthModel.create({
+    let monthData = await MonthModel.findOne({
+      userID,
+      year,
+      month,
+    });
+
+    if (!monthData) {
+      monthData = await MonthModel.create({
         userID,
         year,
         month,
-        totalDays: new Date(year, month+1, 0).getDate(),
-        firstDay: new Date(year, month, 1).getDay()
+        totalDays,
+        firstDay,
       });
+
       return res.status(201).json({
         success: true,
-        monthData: newMonth,
+        monthData,
       });
     }
+
     return res.status(200).json({
       success: true,
-      monthData: existingMonth,
+      monthData,
     });
-
   } catch (error) {
     console.error(error);
-    res.status(500).json({
+
+    return res.status(500).json({
       success: false,
       message: "Something went wrong",
-      error
     });
   }
 };

@@ -8,6 +8,7 @@ import {
 } from "../models/dateLogModel";
 import { TaskModel } from "../models/dateLogModel";
 import mongoose from "mongoose";
+import { getIO } from "../socket/socket";
 
 export const getDateLog = async (req: Request, res: Response) => {
   try {
@@ -29,7 +30,11 @@ export const getDateLog = async (req: Request, res: Response) => {
       });
     }
 
-    const monthDetail = await MonthModel.findById(monthDashID).lean();
+    let [monthDetail, existingLogs, tasks] = await Promise.all([
+      MonthModel.findById(monthDashID).lean(),
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
+      TaskModel.find({ monthDashID }).lean(),
+    ]);
 
     if (!monthDetail) {
       return res.status(404).json({
@@ -40,25 +45,22 @@ export const getDateLog = async (req: Request, res: Response) => {
 
     const { month, year, totalDays } = monthDetail;
 
-    let existingLogs = await DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean();
-
     if (existingLogs.length === 0) {
-      const logsToCreate = Array.from({ length: totalDays }, (_, i) => ({
-        monthDashID,
-        fullDate: new Date(Date.UTC(year, month, i + 1)),
-        tasks: [],
-      }));
+      const logsToCreate = Array.from({ length: totalDays }, (_, i) => {
+        return {
+          monthDashID,
+          fullDate: new Date(Date.UTC(year, month, i + 1)),
+          tasks: [],
+        };
+      });
 
-      await DateLogModel.insertMany(logsToCreate, {
+      const insertedLogs = await DateLogModel.insertMany(logsToCreate, {
         ordered: false,
       });
 
-      existingLogs = await DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean();
+      existingLogs = insertedLogs.map((doc) => doc.toObject());
     }
 
-    const tasks = await TaskModel.find({
-      monthDashID,
-    }).lean();
     const taskIDs = tasks.map((t) => t._id.toString());
     const progress = calculateProgress(
       existingLogs.map((log) => ({
@@ -138,6 +140,13 @@ export const addTask = async (req: Request, res: Response) => {
       })),
       taskIDs,
     );
+
+    const io = getIO();
+
+    io.to(userID).emit("add-task", {
+      tasks: allTasks,
+      progress,
+    });
 
     return res.status(201).json({
       success: true,
@@ -236,17 +245,11 @@ export const markTask = async (req: Request, res: Response) => {
       });
     }
 
-    // new Date(Date.UTC(year, month, i + 1))
-
     const dateObj = new Date(fullDate);
     const year = dateObj.getUTCFullYear();
     const month = dateObj.getUTCMonth();
     const day = dateObj.getUTCDate();
     const normalizedUtcDate = new Date(Date.UTC(year, month, day));
-
-    // const normalizedDate = new Date(fullDate);
-
-    // normalizedDate.setHours(0, 0, 0, 0);
 
     const filter = {
       monthDashID,
@@ -278,10 +281,8 @@ export const markTask = async (req: Request, res: Response) => {
       upsert: true,
     }).lean();
 
-    // parallel queries
     const [existingLogs, tasks] = await Promise.all([
       DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
-
       TaskModel.find({ monthDashID }).select("_id").lean(),
     ]);
 
@@ -294,6 +295,16 @@ export const markTask = async (req: Request, res: Response) => {
       })),
       taskIDs,
     );
+
+    const io = getIO();
+
+    io.to(userID).emit("task-marked", {
+      dateLogID: updatedDateLog._id,
+      dateLog: updatedDateLog,
+      progress,
+      taskID,
+      marked,
+    });
 
     return res.status(200).json({
       success: true,
@@ -397,6 +408,13 @@ export const removeTask = async (req: Request, res: Response) => {
       taskIDs,
     );
 
+    const io = getIO();
+
+    io.to(userID).emit("remove-task", {
+      tasks: remainingTasks,
+      progress,
+    });
+
     return res.status(200).json({
       success: true,
       tasks: remainingTasks,
@@ -433,13 +451,6 @@ export const updateTask = async (req: Request, res: Response) => {
       });
     }
 
-    // if (!taskName || !taskName.trim()) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Task name is required"
-    //   });
-    // }
-
     const updatedTask = await TaskModel.findOneAndUpdate(
       { _id: taskID },
       {
@@ -458,6 +469,12 @@ export const updateTask = async (req: Request, res: Response) => {
         message: "Task not found",
       });
     }
+
+    const io = getIO();
+
+    io.to(userID).emit("update-task", {
+      task: updatedTask,
+    });
 
     return res.status(200).json({
       success: true,
@@ -597,6 +614,12 @@ export const updateMonthlyNote = async (req: Request, res: Response) => {
       { new: true, upsert: true },
     );
 
+    const io = getIO();
+
+    io.to(userID).emit("update-monthly-note", {
+      note: updatedNote,
+    });
+
     return res.status(200).json({
       success: true,
       note: updatedNote,
@@ -677,6 +700,12 @@ export const addMonthlyTargets = async (req: Request, res: Response) => {
       { new: true, upsert: true },
     );
 
+    const io = getIO();
+
+    io.to(userID).emit("add-monthly-target", {
+      target: newTarget,
+    });
+
     return res.status(200).json({
       success: true,
       target: newTarget,
@@ -712,11 +741,17 @@ export const removeMonthlyTargets = async (req: Request, res: Response) => {
       });
     }
 
-    await MonthlyTargetsModel.findOneAndUpdate(
+    const updated = await MonthlyTargetsModel.findOneAndUpdate(
       { monthDashID },
       { $pull: { targets: { _id: targetID } } },
       { new: true },
     );
+
+    const io = getIO();
+
+    io.to(userID).emit("remove-monthly-target", {
+      target: updated,
+    });
 
     return res.status(200).json({
       success: true,
@@ -824,6 +859,12 @@ export const markMonthlyTargets = async (req: Request, res: Response) => {
         message: "Target not found",
       });
     }
+
+    const io = getIO();
+
+    io.to(userID).emit("mark-monthly-target", {
+      target: updated,
+    });
 
     return res.status(200).json({
       success: true,
@@ -1288,10 +1329,7 @@ export const markWeeklyTargets = async (req: Request, res: Response) => {
   }
 };
 
-export const resetDatelog = async (
-  req: Request,
-  res: Response
-) => {
+export const resetDatelog = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
 
@@ -1319,7 +1357,7 @@ export const resetDatelog = async (
     }
 
     const existingLogs = await DateLogModel.exists({
-      monthDashID
+      monthDashID,
     });
 
     if (!existingLogs) {
@@ -1333,16 +1371,15 @@ export const resetDatelog = async (
       { monthDashID },
       {
         $set: {
-          tasks: []
-        }
-      }
+          tasks: [],
+        },
+      },
     );
 
     return res.status(200).json({
       success: true,
       message: "Reset Successfully",
     });
-
   } catch (error) {
     console.error(error);
 
