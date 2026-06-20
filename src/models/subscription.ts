@@ -1,14 +1,5 @@
 import mongoose from "mongoose";
-
-interface SubscriptionI {
-  userID: string;
-  planID: string;
-  planType: string;
-  startDate: Date;
-  endDate: Date;
-  status: string;
-  paymentStatus?: string;
-}
+import { SubscriptionI } from "../types";
 
 const subscriptionSchema = new mongoose.Schema({
   userID: {
@@ -17,44 +8,43 @@ const subscriptionSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-
   planID: {
     type: mongoose.Types.ObjectId,
     ref: "Plan",
     required: true
   },
-
   planType: {
     type: String,
     enum: ["free", "paid"],
     required: true,
-    index: true
   },
-
+  timezone: {
+    type: String,
+    required: true
+  },
   startDate: {
     type: Date,
     required: true
   },
-
   endDate: {
     type: Date,
     required: true
   },
-
   status: {
     type: String,
     enum: ["active", "expired", "scheduled", "cancelled"],
     default: "active",
-    index: true
   },
-
   paymentStatus: {
     type: String,
     enum: ["pending", "paid", "failed", "free"],
     default: "free"
   }
-
 }, { timestamps: true });
+
+subscriptionSchema.index({ userID: 1, status: 1 });
+subscriptionSchema.index({ userID: 1, planType: 1 });
+subscriptionSchema.index({ userID: 1, endDate: -1 });
 
 const Subscription = mongoose.model<SubscriptionI>("Subscription", subscriptionSchema);
 

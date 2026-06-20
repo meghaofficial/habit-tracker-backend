@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express, { Request, Response } from "express";
+import express, { Response } from "express";
 import { connectDB } from "./db/db";
 import { userRoute } from "./routes/authRoute";
 import { planRoute } from "./routes/planRoute";
@@ -9,38 +9,15 @@ import { dateLogRoute } from './routes/dateRoute';
 import cors from 'cors';
 import cookieParser from "cookie-parser";
 import { analysisRoute } from './routes/analysisRoute';
+import http from "http";
+import { initSocket } from "./socket/socket";
+import { otpRoute } from './routes/otpRoute';
 
 const PORT = process.env.PORT || 8080;
 const app = express();
 
-// const startServer = async () => {
-//   try {
-//     // 1. Wait for DB first
-//     await connectDB(process.env.DB_URI || "");
-
-//     // 2. Setup Middleware & Routes
-//     app.use(cors({
-//       origin: 'http://localhost:5173',
-//       credentials: true
-//     }));
-//     app.use(cookieParser());
-//     app.use(express.json());
-//     app.use(express.urlencoded({ extended: true }));
-
-//     app.get('/', (req, res) => res.send('Hello'));
-//     app.use("/auth", userRoute);
-//     app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute]);
-
-//     // 3. Start Listening
-//     app.listen(PORT, () => console.log(`🚀 listening on PORT - ${PORT}`));
-
-//   } catch (error) {
-//     console.error("Failed to start server:", error);
-//     process.exit(1);
-//   }
-// };
-
-// startServer();
+const server = http.createServer(app);
+initSocket(server);
 
 await connectDB(process.env.DB_URI || "");
 
@@ -52,10 +29,14 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (res: Response) => {
   res.send('Hello');
 });
-app.use("/auth", userRoute);
+app.use("/auth", [userRoute, otpRoute]);
 app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute, analysisRoute]);
 
-app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`listening on PORT - ${PORT}`);
+});
+
+// app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));

@@ -3,9 +3,15 @@ import User from "../models/authModel";
 import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
 import crypto from "crypto";
-import { MonthModel } from "../models/dashboardModel";
-import mongoose, { Types } from "mongoose";
-import { calcFullDate, createTaskData } from "../helper/utils";
+import { otpTemplate } from "../emails/otp-signup.template";
+import { sendEmail } from "../services/email.service";
+import OTP from "../models/otpModel";
+import { passwordChangedTemplate } from "../emails/successful-pwd-change.template";
+import { resetPasswordOTPTemplate } from "../emails/otp-pwd-reset.template";
+
+function generateOTP() {
+  return crypto.randomInt(100000, 1000000).toString();
+}
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -26,18 +32,35 @@ export const signup = async (req: Request, res: Response) => {
       });
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const otp = generateOTP();
+    const [hashedPassword, hashedOTP] = await Promise.all([
+      bcrypt.hash(password, salt),
+      bcrypt.hash(otp, salt),
+    ]);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // for 10 min only
 
-    const newUser = new User({
-      username,
+    await OTP.deleteMany({
       email,
-      password: hashedPassword,
+      type: "signup",
     });
-    await newUser.save();
+    await OTP.create({
+      email,
+      username,
+      password: hashedPassword,
+      otp: hashedOTP,
+      type: "signup",
+      expiresAt,
+    });
+
+    await sendEmail({
+      to: email,
+      subject: "Verify your account",
+      html: otpTemplate(username, otp),
+    });
 
     return res.status(201).json({
       success: true,
-      message: "Registered Successfully",
+      message: "OTP sent",
     });
   } catch (error) {
     console.error(error);
@@ -214,7 +237,7 @@ export const logout = async (req: Request, res: Response) => {
 
     if (user) {
       user.refreshTokens = user.refreshTokens.filter(
-        (rt: any) => rt.token !== token
+        (rt: any) => rt.token !== token,
       );
 
       await user.save();
@@ -241,7 +264,7 @@ export const logout = async (req: Request, res: Response) => {
 export const refreshToken = async (req: Request, res: Response) => {
   const token = req.cookies.refreshToken;
 
-  if (!token) return res.status(401).json({ message: "No token available" });
+  if (!token) return res.status(401).json({});
 
   try {
     const decoded: any = jwt.verify(
@@ -253,9 +276,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     );
 
     if (!user) {
-      return res
-        .status(403)
-        .json({ success: false, message: "User does not exists" });
+      return res.status(403).json({});
     }
 
     const tokenData = user.refreshTokens.find((t) => t.token === token);
@@ -266,12 +287,6 @@ export const refreshToken = async (req: Request, res: Response) => {
         .clearCookie("refreshToken")
         .json({ message: "Invalid or expired token" });
     }
-
-    // // remove used token
-    // user.refreshTokens = user.refreshTokens.filter((t) => t.token !== token);
-
-    // // add new token
-    // user.refreshTokens.push(newTokenObject);
 
     const newAccessToken = jwt.sign(
       { id: user._id },
@@ -350,6 +365,12 @@ export const changePassword = async (req: Request, res: Response) => {
     user.password = await bcrypt.hash(new_password, 10);
     await user.save();
 
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset Successfully",
+      html: passwordChangedTemplate(user.username),
+    });
+
     res.status(200).json({
       success: true,
       message: "Password updated",
@@ -376,15 +397,32 @@ export const forgotPassword = async (req: Request, res: Response) => {
         .status(404)
         .json({ success: false, message: "User does not exists" });
 
-    const token = crypto.randomBytes(32).toString("hex");
+    const salt = await bcrypt.genSalt(10);
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, salt);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // for 10 min only
 
-    user.resetPasswordToken = token;
-    user.resetPasswordExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    await OTP.deleteMany({
+      email,
+      type: "forgot-password",
+    });
+    await OTP.create({
+      email,
+      otp: hashedOTP,
+      type: "forgot-password",
+      expiresAt,
+    });
 
-    await user.save();
-    res.status(200).json({ success: true, message: "OTP sent" });
+    await sendEmail({
+      to: email,
+      subject: "Forgot password",
+      html: resetPasswordOTPTemplate(email, otp),
+    });
 
-    // send email with token (link or OTP)
+    res.status(200).json({
+      success: true,
+      message: "OTP has been sent to your registered email id",
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -396,25 +434,36 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { token, new_password } = req.body;
+    const { email, new_password } = req.body;
 
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpire: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return res.status(400).json({ message: "Invalid or expired token" });
+    if (!email) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Email is required" });
     }
 
-    user.password = await bcrypt.hash(new_password, 10);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(new_password, salt);
 
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
+    const updatedUser = await User.findOneAndUpdate(
+      { email },
+      { $set: { password: hashedPassword } },
+    );
 
-    await user.save();
+    if (!updatedUser)
+      return res
+        .status(404)
+        .json({ success: false, message: "User does not exists" });
 
-    res.json({ success: true, message: "Password reset successful" });
+    await sendEmail({
+      to: email,
+      subject: "Password Change",
+      html: passwordChangedTemplate(updatedUser.username),
+    });
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password changed successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({
