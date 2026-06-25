@@ -65,7 +65,7 @@ export const getDateLog = async (req: Request, res: Response) => {
     const progress = calculateProgress(
       existingLogs.map((log) => ({
         fullDate: log.fullDate,
-        tasks: log.tasks.map((task) => task.toString()),
+        tasks: log?.tasks?.map((task) => task.toString()),
       })),
       taskIDs,
     );
@@ -205,8 +205,16 @@ export const markTask = async (req: Request, res: Response) => {
       });
     }
 
-    const monthDashID = req.query.monthDashID as string;
     const fullDate = req.query.fullDate as string;
+
+    if (new Date(fullDate).getUTCDate() !== new Date().getUTCDate()) {
+      return res.status(400).json({
+        success: false,
+        message: "Not allowed"
+      });
+    }
+
+    const monthDashID = req.query.monthDashID as string;
     const taskID = req.query.taskID as string;
 
     const { marked } = req.body;
@@ -508,12 +516,12 @@ function calculateProgress(
   }[] = [];
 
   filteredDateLogs.forEach((d) => {
-    totalCount += d.tasks.length;
+    totalCount += d?.tasks?.length;
 
     dateLogProgress.push({
-      fullDate: d.fullDate,
-      count: d.tasks.length,
-      progress: ((d.tasks.length / tasksList.length) * 100).toFixed(2),
+      fullDate: d?.fullDate,
+      count: d?.tasks?.length,
+      progress: ((d?.tasks?.length / tasksList?.length) * 100).toFixed(2),
     });
   });
 
@@ -530,7 +538,7 @@ function calculateProgress(
   }[] = [];
 
   tasksList.forEach((t) => {
-    const count = filteredDateLogs.filter((d) => d.tasks.includes(t)).length;
+    const count = filteredDateLogs.filter((d) => d?.tasks?.includes(t)).length;
 
     const progress = ((count / filteredDateLogs.length) * 100).toFixed(2);
 
