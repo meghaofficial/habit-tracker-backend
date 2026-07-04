@@ -207,7 +207,7 @@ export const markTask = async (req: Request, res: Response) => {
 
     const fullDate = req.query.fullDate as string;
 
-    if (new Date(fullDate).getUTCDate() !== new Date().getUTCDate()) {
+    if (new Date(fullDate).getDate() !== new Date().getDate()) {
       return res.status(400).json({
         success: false,
         message: "Not allowed"
