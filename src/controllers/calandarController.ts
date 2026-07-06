@@ -89,6 +89,74 @@ export const getCalandarData = async (req: Request, res: Response) => {
 
 export const updateCalandarData = async (req: Request, res: Response) => {
   try {
+    const userID = (req as any).user?.id;
+    const { id, status, title, description } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing task ID",
+      });
+    }
+
+    const updatedData = await Calandar.findOneAndUpdate(
+      { _id: id, userID },
+      { status, title, description },
+      { new: true }
+    );
+
+    if (!updatedData) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: updatedData._id,
+        date: new Date(updatedData.year, updatedData.month, updatedData.day),
+        status: updatedData.status,
+        title: updatedData.title,
+        description: updatedData.description,
+        updatedAt: updatedData.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export const deleteCalandarData = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const { id } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing task ID",
+      });
+    }
+
+    const deletedData = await Calandar.findOneAndDelete({ _id: id, userID });
+
+    if (!deletedData) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Successfully Deleted",
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({
