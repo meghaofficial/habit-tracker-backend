@@ -1,6 +1,6 @@
 export interface PlanI {
   planName: string; // monthly, yearly, quarterly, half-yearly
-  planType: string;  // free, paid
+  planType: string; // free, paid
   no_of_months: number;
   amount: number;
   description: string;
@@ -22,8 +22,8 @@ export interface MonthDashboardI {
   month: number;
   year: number;
   totalDays: number;
-  firstDay: number;    // storing which day is on the first date of month
-};
+  firstDay: number; // storing which day is on the first date of month
+}
 
 export interface TaskI {
   monthDashID: string;
@@ -43,13 +43,13 @@ export interface MonthlyNoteI {
 
 export interface MonthlyTargetsI {
   monthDashID: string;
-  targets: { _id: string; value: string, completed: boolean }[];
+  targets: { _id: string; value: string; completed: boolean }[];
 }
 
 export interface WeeklyTargetsI {
   monthDashID: string;
   week: number;
-  targets: { _id: string; value: string, completed: boolean }[];
+  targets: { _id: string; value: string; completed: boolean }[];
 }
 
 export interface IOtp {
@@ -59,4 +59,15 @@ export interface IOtp {
   otp: string;
   type: string;
   expiresAt: Date;
+}
+
+export interface CalandarI {
+  userID: string;
+  year: number;
+  month: number;
+  day: number;
+  status: string;
+  title: string;
+  description: string;
+  updatedAt: string;
 }

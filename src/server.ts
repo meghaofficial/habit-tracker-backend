@@ -12,6 +12,7 @@ import { analysisRoute } from './routes/analysisRoute';
 import http from "http";
 import { initSocket } from "./socket/socket";
 import { otpRoute } from './routes/otpRoute';
+import { calandarRoute } from './routes/calandarRoute';
 
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -33,7 +34,7 @@ app.get('/', (res: Response) => {
   res.send('Hello');
 });
 app.use("/auth", [userRoute, otpRoute]);
-app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute, analysisRoute]);
+app.use("/auth/api", [planRoute, subsRoute, dashboardRoute, dateLogRoute, analysisRoute, calandarRoute]);
 
 server.listen(PORT, () => {
   console.log(`listening on PORT - ${PORT}`);
