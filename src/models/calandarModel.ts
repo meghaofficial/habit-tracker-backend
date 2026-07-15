@@ -4,7 +4,7 @@ import { CalandarI } from "../types";
 const calandarSchema = new mongoose.Schema(
   {
     userID: {
-      type: mongoose.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       index: true,
       required: true,

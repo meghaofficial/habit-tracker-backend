@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { MonthDashboardI } from "../types";
 
 const monthDashboardSchema = new mongoose.Schema({
-  userID: { type: mongoose.Types.ObjectId, ref: "User", index: true, required: true },
+  userID: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true, required: true },
   month: { type: Number, required: true },
   year: { type: Number, required: true },
   totalDays: Number,

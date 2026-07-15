@@ -3,13 +3,13 @@ import { SubscriptionI } from "../types";
 
 const subscriptionSchema = new mongoose.Schema({
   userID: {
-    type: mongoose.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
     index: true
   },
   planID: {
-    type: mongoose.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "Plan",
     required: true
   },

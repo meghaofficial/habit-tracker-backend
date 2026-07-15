@@ -402,12 +402,10 @@ export const removeTask = async (req: Request, res: Response) => {
     // parallel queries
     const [remainingTasks, existingLogs] = await Promise.all([
       TaskModel.find({ monthDashID }).lean(),
-
       DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
     ]);
 
     const taskIDs = remainingTasks.map((task) => task._id.toString());
-
     const progress = calculateProgress(
       existingLogs.map((log) => ({
         fullDate: log.fullDate,

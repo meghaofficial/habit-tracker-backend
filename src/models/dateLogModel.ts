@@ -4,12 +4,11 @@ import { DateLogI, MonthlyNoteI, MonthlyTargetsI, TaskI, WeeklyTargetsI } from "
 const taskSchema = new mongoose.Schema(
   {
     monthDashID: {
-      type: mongoose.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Month",
       required: true,
       index: true,
     },
-
     taskName: {
       type: String,
       trim: true,
@@ -22,19 +21,17 @@ const taskSchema = new mongoose.Schema(
 const dateLogSchema = new mongoose.Schema(
   {
     monthDashID: {
-      type: mongoose.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Month",
       required: true,
     },
-
     fullDate: {
       type: Date,
       required: true,
     },
-
     // stores only completed task IDs
     tasks: {
-      type: [mongoose.Types.ObjectId],
+      type: [mongoose.Schema.Types.ObjectId],
       ref: "Task",
       default: [],
     },
@@ -46,7 +43,7 @@ dateLogSchema.index({ monthDashID: 1, fullDate: 1 }, { unique: true });
 
 const monthNoteSchema = new mongoose.Schema({
   monthDashID: {
-    type: mongoose.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "MonthDashboard",
     index: true,
     required: true,
@@ -57,7 +54,7 @@ const monthNoteSchema = new mongoose.Schema({
 
 const monthlyTargetSchema = new mongoose.Schema({
   monthDashID: {
-    type: mongoose.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "MonthDashboard",
     required: true,
   },
@@ -66,16 +63,14 @@ const monthlyTargetSchema = new mongoose.Schema({
     type: [
       {
         _id: {
-          type: mongoose.Types.ObjectId,
+          type: mongoose.Schema.Types.ObjectId,
           auto: true,
         },
-
         value: {
           type: String,
           required: true,
           trim: true,
         },
-
         completed: {
           type: Boolean,
           default: false
@@ -94,7 +89,7 @@ monthlyTargetSchema.index({ monthDashID: 1 }, { unique: true });
 
 const weeklyTargetSchema = new mongoose.Schema({
   monthDashID: {
-    type: mongoose.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "MonthDashboard",
     required: true,
     index: true,
@@ -108,16 +103,14 @@ const weeklyTargetSchema = new mongoose.Schema({
     type: [
       {
         _id: {
-          type: mongoose.Types.ObjectId,
+          type: mongoose.Schema.Types.ObjectId,
           auto: true,
         },
-
         value: {
           type: String,
           required: true,
           trim: true,
         },
-
         completed: {
           type: Boolean,
           default: false
@@ -126,7 +119,6 @@ const weeklyTargetSchema = new mongoose.Schema({
     ],
     validate: [
       (arr: { value: string }[]) => arr.length <= 10,
-
       "Max 10 targets allowed",
     ],
   },
