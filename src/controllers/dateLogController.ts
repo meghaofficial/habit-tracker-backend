@@ -148,11 +148,7 @@ export const addTask = async (req: Request, res: Response) => {
       progress,
     });
 
-    return res.status(201).json({
-      success: true,
-      tasks: allTasks,
-      progress,
-    });
+    return res.status(201).json({});
   } catch (error) {
     console.error(error);
 
@@ -314,11 +310,7 @@ export const markTask = async (req: Request, res: Response) => {
       marked,
     });
 
-    return res.status(200).json({
-      success: true,
-      dateLog: updatedDateLog,
-      progress,
-    });
+    return res.status(200).json({});
   } catch (error) {
     console.error(error);
 
@@ -421,11 +413,7 @@ export const removeTask = async (req: Request, res: Response) => {
       progress,
     });
 
-    return res.status(200).json({
-      success: true,
-      tasks: remainingTasks,
-      progress,
-    });
+    return res.status(200).json({});
   } catch (error) {
     console.error(error);
 
@@ -482,10 +470,7 @@ export const updateTask = async (req: Request, res: Response) => {
       task: updatedTask,
     });
 
-    return res.status(200).json({
-      success: true,
-      task: updatedTask,
-    });
+    return res.status(200).json({});
   } catch (error) {
     console.error(error);
 
@@ -759,10 +744,7 @@ export const removeMonthlyTargets = async (req: Request, res: Response) => {
       target: updated,
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Removed target successfully",
-    });
+    return res.status(200).json({});
   } catch (error) {
     console.error(error);
 

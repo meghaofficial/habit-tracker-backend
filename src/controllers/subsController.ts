@@ -173,7 +173,7 @@ export const getActiveSubscription = async (req: Request, res: Response) => {
       {
         userID,
         status: "active",
-        endDate: { $lte: now },
+        endDate: { $lt: now },
       },
       {
         $set: {
@@ -248,21 +248,45 @@ export const getActiveSubscription = async (req: Request, res: Response) => {
 export const getAllSubscription = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
-    const subs = await Subscription.find({
-      userID,
-    }).select("planType startDate endDate status");
+    const { type } = req.query; // active, expired, scheduled
+    // const subs = await Subscription.find({
+    //   userID,
+    // }).select("planType startDate endDate status");
 
-    if (!subs) {
-      return res.status(404).json({
-        success: false,
-        message: "No subscription found",
+    let subs = [];
+
+    if (!type) {
+      const subs = await Subscription.find({
+        userID,
+      }).select("planType startDate endDate status");
+      if (!subs) {
+        return res.status(404).json({
+          success: false,
+          message: "No subscription found",
+        });
+      }
+      else return res.status(200).json({
+        success: true,
+        subscriptions: subs,
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      subscriptions: subs,
-    });
+    else {
+      const subs = await Subscription.find({
+        userID, status: type
+      }).select("planType startDate endDate status");
+      if (!subs) {
+        return res.status(404).json({
+          success: false,
+          message: "No subscription found",
+        });
+      }
+      else return res.status(200).json({
+        success: true,
+        subscriptions: subs,
+      });
+    }
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({
