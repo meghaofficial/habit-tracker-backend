@@ -206,7 +206,7 @@ export const markTask = async (req: Request, res: Response) => {
     if (new Date(fullDate).getDate() !== new Date().getDate()) {
       return res.status(400).json({
         success: false,
-        message: "Not allowed"
+        message: "Not allowed",
       });
     }
 
@@ -290,15 +290,47 @@ export const markTask = async (req: Request, res: Response) => {
       TaskModel.find({ monthDashID }).select("_id").lean(),
     ]);
 
-    const taskIDs = tasks.map((t) => t._id.toString());
+    const totalTasks = tasks.length;
+    const totalDays = existingLogs.length * totalTasks;
 
-    const progress = calculateProgress(
-      existingLogs.map((log) => ({
-        fullDate: log.fullDate,
-        tasks: log.tasks.map((task) => task.toString()),
-      })),
-      taskIDs,
-    );
+    let totalCount = 0;
+    let taskCount = updatedDateLog.tasks.length;
+    let taskDoneOnEachDay = 0;
+
+    existingLogs.forEach((d) => {
+      totalCount += d?.tasks?.length;
+      if (d.tasks.some((id) => id.toString() === taskID)) {
+        taskDoneOnEachDay++;
+      }
+    });
+
+    const overallProgress = {
+      total: totalDays,
+      count: totalCount,
+      progress: ((totalCount / totalDays) * 100).toFixed(2),
+    };
+
+    const dateLogProgress = [
+      {
+        fullDate,
+        count: taskCount,
+        progress: ((taskCount / totalTasks) * 100).toFixed(2),
+      },
+    ];
+
+    const taskProgress = [
+      {
+        id: taskID,
+        count: taskDoneOnEachDay,
+        progress: ((taskDoneOnEachDay / existingLogs.length) * 100).toFixed(2),
+      },
+    ];
+
+    const progress = {
+      overallProgress,
+      dateLogProgress,
+      taskProgress,
+    };
 
     const io = getIO();
 
@@ -310,7 +342,9 @@ export const markTask = async (req: Request, res: Response) => {
       marked,
     });
 
-    return res.status(200).json({});
+    return res.status(200).json({
+      progress,
+    });
   } catch (error) {
     console.error(error);
 
@@ -538,6 +572,10 @@ function calculateProgress(
     taskProgress,
   };
 }
+
+// function calculateDateProgress(fullDate: Date, markedTasksLen: string[], totalTasks: number) {
+//   const progress = ((count / filteredDateLogs.length) * 100).toFixed(2);
+// }
 
 export const getMonthlyNote = async (req: Request, res: Response) => {
   try {
