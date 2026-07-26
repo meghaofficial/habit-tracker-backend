@@ -7,6 +7,14 @@ const monthDashboardSchema = new mongoose.Schema({
   year: { type: Number, required: true },
   totalDays: Number,
   firstDay: Number,
+  totalCount: {
+    type: Number,
+    default: 0
+  },
+  progress: {
+    type: String,
+    default: "0"
+  }
 }, { timestamps: true });
 
 monthDashboardSchema.index(

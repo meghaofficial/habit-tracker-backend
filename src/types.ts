@@ -23,17 +23,23 @@ export interface MonthDashboardI {
   year: number;
   totalDays: number;
   firstDay: number; // storing which day is on the first date of month
+  totalCount: number;
+  progress: string;
 }
 
 export interface TaskI {
   monthDashID: string;
   taskName: string;
+  count: number;
+  progress: string;
 }
 
 export interface DateLogI {
   monthDashID: string;
   fullDate: Date;
   tasks: string[];
+  count: number;
+  progress: string;
 }
 
 export interface MonthlyNoteI {
@@ -105,4 +111,28 @@ export interface HistoryI {
     week: number;
     progress: number;
   }[];
+}
+
+export interface OverallProgressI {
+  total: number;
+  count: number;
+  progress: string | number;
+}
+
+export interface DateLogProgressI {
+  fullDate: Date | string;
+  count: number;
+  progress: string | number;
+}
+
+export interface TaskProgressI {
+  id: string;
+  count: number;
+  progress: string | number;
+}
+
+export interface ProgressI {
+  overallProgress: OverallProgressI;
+  dateLogProgress: DateLogProgressI[];
+  taskProgress: TaskProgressI[];
 }

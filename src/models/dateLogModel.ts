@@ -14,6 +14,14 @@ const taskSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    count: {
+      type: Number,
+      default: 0
+    },
+    progress: {
+      type: String,
+      default: "0"
+    }
   },
   { timestamps: true },
 );
@@ -35,6 +43,14 @@ const dateLogSchema = new mongoose.Schema(
       ref: "Task",
       default: [],
     },
+    count: {
+      type: Number,
+      default: 0
+    },
+    progress: {
+      type: String,
+      default: "0"
+    }
   },
   { timestamps: true },
 );

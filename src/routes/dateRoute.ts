@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { canAccessDashboard } from "../middlewares/dashboardMiddleware";
 import { isAuthorized } from "../middlewares/authMiddleware";
-import { getDateLog, markTask, addTask, getTask, removeTask, updateTask, getMonthlyNote, updateMonthlyNote, getMonthlyTargets, addMonthlyTargets, updateMonthlyTargets, removeMonthlyTargets, markMonthlyTargets, getWeeklyTargets, addWeeklyTargets, updateWeeklyTargets, removeWeeklyTargets, markWeeklyTargets, resetDatelog } from "../controllers/dateLogController";
+import { getDateLog, markTask, addTask, getTask, removeTask, updateTask, getMonthlyNote, updateMonthlyNote, getMonthlyTargets, addMonthlyTargets, updateMonthlyTargets, removeMonthlyTargets, markMonthlyTargets, getWeeklyTargets, addWeeklyTargets, updateWeeklyTargets, removeWeeklyTargets, markWeeklyTargets, resetDatelog } from "../controllers/dateLog.controller";
 
 const router = Router();
 

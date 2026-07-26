@@ -9,6 +9,8 @@ import {
 import { TaskModel } from "../models/dateLogModel";
 import mongoose from "mongoose";
 import { getIO } from "../socket/socket";
+import { findProgress } from "../helper/utils";
+import { updateDateLog, updateMonthProgress, updateTaskProgress } from "../services/dateLog.service";
 
 export const getDateLog = async (req: Request, res: Response) => {
   try {
@@ -192,43 +194,32 @@ export const getTask = async (req: Request, res: Response) => {
 
 export const markTask = async (req: Request, res: Response) => {
   try {
+    
     const userID = (req as any).user?.id;
-
-    if (!userID) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
+    const monthDashID = req.query.monthDashID as string;
+    const taskID = req.query.taskID as string;
     const fullDate = req.query.fullDate as string;
+    const { marked } = req.body;
 
+    // ------------------ VALIDATIONS --------------------
     if (new Date(fullDate).getDate() !== new Date().getDate()) {
       return res.status(400).json({
         success: false,
         message: "Not allowed",
       });
     }
-
-    const monthDashID = req.query.monthDashID as string;
-    const taskID = req.query.taskID as string;
-
-    const { marked } = req.body;
-
     if (!monthDashID || !fullDate || !taskID || typeof marked !== "boolean") {
       return res.status(400).json({
         success: false,
-        message: "Required fields missing",
+        message: "Missing required fields",
       });
     }
-
     if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
       return res.status(400).json({
         success: false,
         message: "Invalid Month Dashboard ID",
       });
     }
-
     if (!mongoose.Types.ObjectId.isValid(taskID)) {
       return res.status(400).json({
         success: false,
@@ -236,115 +227,113 @@ export const markTask = async (req: Request, res: Response) => {
       });
     }
 
-    // ownership check
-    const dashboardExists = await MonthModel.exists({
-      _id: monthDashID,
-      userID,
-    });
+    // ------------------ OWNERSHIP --------------------
+    const [dashboard, tasks] = await Promise.all([
+      MonthModel.findOne({
+        _id: monthDashID,
+        userID,
+      }),
+      TaskModel.find({
+        monthDashID,
+      }).select("_id"),
+    ]);
 
-    if (!dashboardExists) {
+    if (!dashboard) {
       return res.status(403).json({
         success: false,
         message: "Access denied",
       });
     }
 
-    const dateObj = new Date(fullDate);
-    const year = dateObj.getUTCFullYear();
-    const month = dateObj.getUTCMonth();
-    const day = dateObj.getUTCDate();
-    const normalizedUtcDate = new Date(Date.UTC(year, month, day));
+    const totalTasks = tasks.length;
+    const daysInMonth = dashboard.totalDays;
+    const overallTotal = totalTasks * daysInMonth;
+    const date = new Date(fullDate);
+    const normalizedUtcDate = new Date(
+      Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate()
+      )
+    );
+    const session = await mongoose.startSession();
 
-    const filter = {
-      monthDashID,
-      fullDate: normalizedUtcDate,
-    };
+    try {
+      
+      let response;
 
-    const update = marked
-      ? {
-          $addToSet: {
-            tasks: taskID,
+      await session.withTransaction(async () => {
+
+        console.log("Transaction started");
+
+        const day = await updateDateLog({
+          session,
+          monthDashID,
+          taskID,
+          marked,
+          normalizedUtcDate,
+          totalTasks,
+        });
+        console.log("DateLog done");
+
+        const dateLogs = await DateLogModel.find({ monthDashID, }).session(session);
+
+        const task = await updateTaskProgress({
+          session,
+          monthDashID,
+          taskID,
+          daysInMonth,
+          dateLogs
+        });
+        console.log("Task done");
+
+        const overall = await updateMonthProgress({
+          session,
+          monthDashID,
+          overallTotal,
+          dateLogs
+        });
+        console.log("Month done");
+
+        console.log("Transaction committed");
+
+        response = {
+          overallProgress: {
+            total: overallTotal,
+            count: overall.count,
+            progress: overall.progress,
           },
-          $setOnInsert: {
-            monthDashID,
-            fullDate: normalizedUtcDate,
+          dateLogProgress: {
+            fullDate,
+            count: day.count,
+            progress: day.progress,
           },
-        }
-      : {
-          $pull: {
-            tasks: taskID,
-          },
-          $setOnInsert: {
-            monthDashID,
-            fullDate: normalizedUtcDate,
+          taskProgress: {
+            id: taskID,
+            count: task.count,
+            progress: task.progress,
           },
         };
 
-    const updatedDateLog = await DateLogModel.findOneAndUpdate(filter, update, {
-      new: true,
-      upsert: true,
-    }).lean();
+      });
 
-    const [existingLogs, tasks] = await Promise.all([
-      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
-      TaskModel.find({ monthDashID }).select("_id").lean(),
-    ]);
+      return res.status(200).json({
+        success: true,
+        progress: response,
+      });
 
-    const totalTasks = tasks.length;
-    const totalDays = existingLogs.length * totalTasks;
+    } catch (error) {
+      
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Something went wrong",
+      });
 
-    let totalCount = 0;
-    let taskCount = updatedDateLog.tasks.length;
-    let taskDoneOnEachDay = 0;
+    } finally { 
+      await session.endSession();
+    }
 
-    existingLogs.forEach((d) => {
-      totalCount += d?.tasks?.length;
-      if (d.tasks.some((id) => id.toString() === taskID)) {
-        taskDoneOnEachDay++;
-      }
-    });
-
-    const overallProgress = {
-      total: totalDays,
-      count: totalCount,
-      progress: ((totalCount / totalDays) * 100).toFixed(2),
-    };
-
-    const dateLogProgress = [
-      {
-        fullDate,
-        count: taskCount,
-        progress: ((taskCount / totalTasks) * 100).toFixed(2),
-      },
-    ];
-
-    const taskProgress = [
-      {
-        id: taskID,
-        count: taskDoneOnEachDay,
-        progress: ((taskDoneOnEachDay / existingLogs.length) * 100).toFixed(2),
-      },
-    ];
-
-    const progress = {
-      overallProgress,
-      dateLogProgress,
-      taskProgress,
-    };
-
-    const io = getIO();
-
-    io.to(userID).emit("task-marked", {
-      dateLogID: updatedDateLog._id,
-      dateLog: updatedDateLog,
-      progress,
-      taskID,
-      marked,
-    });
-
-    return res.status(200).json({
-      progress,
-    });
   } catch (error) {
     console.error(error);
 

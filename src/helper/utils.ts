@@ -38,3 +38,5 @@ export const createTaskData = (yearNum: number, monthNum: number, totalDays: num
   });
   return arr;
 }
+
+export const findProgress = (val: number, total: number) => ((val / total) * 100).toFixed(2)
