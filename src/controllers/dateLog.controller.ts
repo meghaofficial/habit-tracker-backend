@@ -10,7 +10,7 @@ import { TaskModel } from "../models/dateLogModel";
 import mongoose from "mongoose";
 import { getIO } from "../socket/socket";
 import { findProgress } from "../helper/utils";
-import { updateDateLog, updateMonthProgress, updateTaskProgress } from "../services/dateLog.service";
+import { deleteTask, updateDateLog, updateDateLogsAfterTaskDelete, updateMonthAfterTaskDelete, updateMonthProgress, updateTaskProgress } from "../services/dateLog.service";
 
 export const getDateLog = async (req: Request, res: Response) => {
   try {
@@ -88,6 +88,9 @@ export const getDateLog = async (req: Request, res: Response) => {
 };
 
 export const addTask = async (req: Request, res: Response) => {
+
+  const session = await mongoose.startSession();
+
   try {
     const userID = (req as any).user?.id;
 
@@ -108,49 +111,104 @@ export const addTask = async (req: Request, res: Response) => {
       });
     }
 
-    // count tasks
-    const totalTasks = await TaskModel.countDocuments({
-      monthDashID,
-    });
+    let response: any;
 
-    if (totalTasks >= 10) {
-      return res.status(409).json({
-        success: false,
-        message: "Maximum 10 tasks allowed",
+    await session.withTransaction(async () => {
+
+      // Ownership
+      const dashboard = await MonthModel.findOne({
+        _id: monthDashID,
+        userID,
+      }).session(session);
+
+      if (!dashboard) {
+        throw new Error("Access denied");
+      }
+
+      // Existing data
+      const [tasks, dateLogs] = await Promise.all([
+        TaskModel.find({ monthDashID }).sort({ fullDate: 1 }).session(session),
+        DateLogModel.find({ monthDashID }).session(session),
+      ]);
+
+      if (tasks.length >= 10) {
+        throw new Error("Maximum 10 tasks allowed");
+      }
+
+      // Create task
+      const task = await TaskModel.create(
+        [
+          {
+            monthDashID,
+            taskName: taskName.trim(),
+          },
+        ],
+        { session }
+      );
+
+      const totalTasks = tasks.length + 1;
+
+      // Update every DateLog progress
+      const updatedDateLogProgress = dateLogs.map((log) => {
+        const progress = findProgress(log.tasks.length, totalTasks);
+
+        return {
+          fullDate: log.fullDate,
+          count: log.count,
+          progress,
+        };
       });
-    }
+      await DateLogModel.bulkWrite(
+        dateLogs.map((log) => ({
+          updateOne: {
+            filter: { _id: log._id },
+            update: {
+              $set: {
+                progress: findProgress(log.tasks.length, totalTasks),
+              },
+            },
+          },
+        })),
+        { session }
+      );
 
-    // create task
-    await TaskModel.create({
-      monthDashID,
-      taskName: taskName.trim(),
+      // Update month progress
+      const overallTotal = dashboard.totalDays * totalTasks;
+
+      dashboard.progress = findProgress(
+        dashboard.totalCount,
+        overallTotal
+      );
+
+      await dashboard.save({ session });
+
+      response = {
+        task: task[0],
+        progress: {
+          overallProgress: {
+            total: overallTotal,
+            count: dashboard.totalCount,
+            progress: dashboard.progress,
+          },
+          dateLogProgress: updatedDateLogProgress,
+        },
+      };
+
     });
 
-    // run queries in parallel
-    const [allTasks, existingLogs] = await Promise.all([
-      TaskModel.find({ monthDashID }).lean(),
-
-      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
-    ]);
-
-    const taskIDs = allTasks.map((task) => task._id.toString());
-
-    const progress = calculateProgress(
-      existingLogs.map((log) => ({
-        fullDate: log.fullDate,
-        tasks: log.tasks.map((task) => task.toString()),
-      })),
-      taskIDs,
-    );
-
-    const io = getIO();
-
-    io.to(userID).emit("add-task", {
-      tasks: allTasks,
-      progress,
+    return res.status(201).json({
+      success: true,
+      ...response
     });
 
-    return res.status(201).json({});
+    // const io = getIO();
+
+    // io.to(userID).emit("add-task", {
+    //   tasks: allTasks,
+    //   progress,
+    // });
+
+    // return res.status(201).json({});
   } catch (error) {
     console.error(error);
 
@@ -158,6 +216,8 @@ export const addTask = async (req: Request, res: Response) => {
       success: false,
       message: "Something went wrong",
     });
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -345,8 +405,13 @@ export const markTask = async (req: Request, res: Response) => {
 };
 
 export const removeTask = async (req: Request, res: Response) => {
+
+  const session = await mongoose.startSession();
+
   try {
     const userID = (req as any).user?.id;
+    const taskID = req.query.taskID as string;
+    const monthDashID = req.query.monthDashID as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -354,9 +419,6 @@ export const removeTask = async (req: Request, res: Response) => {
         message: "Unauthorized",
       });
     }
-
-    const taskID = req.query.taskID as string;
-    const monthDashID = req.query.monthDashID as string;
 
     if (!taskID || !monthDashID) {
       return res.status(400).json({
@@ -379,71 +441,186 @@ export const removeTask = async (req: Request, res: Response) => {
       });
     }
 
+    let response: any;
+
+    await session.withTransaction(async () => {
+
+      const dashboard = await MonthModel.findOne({ _id: monthDashID, userID, }).session(session);
+
+      if (!dashboard) {
+        throw new Error("Access denied");
+      }
+
+      const { totalTasks } = await deleteTask({
+        session,
+        taskID,
+        monthDashID,
+      });
+
+      const day = await updateDateLogsAfterTaskDelete({
+        session,
+        taskID,
+        monthDashID,
+        totalTasks,
+      });
+
+      const overall = await updateMonthAfterTaskDelete({
+        session,
+        monthDashID,
+        totalTasks,
+        totalDays: dashboard.totalDays,
+        overallCount: day.overallCount,
+      });
+
+      response = {
+          deletedTaskID: taskID,
+          progress: {
+              overallProgress: overall,
+              dateLogProgress: day.dateLogProgress,
+          },
+      };
+
+      // const deletedTask = await TaskModel.findOneAndDelete( { _id: taskID, monthDashID, }, { session, } );
+
+      // if (!deletedTask) {
+      //   throw new Error("Task not found");
+      // }
+
+      // const dateLogs = await DateLogModel.find({ monthDashID, }).session(session);
+      // const totalTasks = await TaskModel.countDocuments({ monthDashID, }).session(session);
+
+      // let overallCount = 0;
+
+      // const bulkOps = dateLogs.map((log) => {
+
+      //   const tasks = log.tasks.filter( id => id.toString() !== taskID );
+      //   const count = tasks.length;
+      //   const progress = totalTasks === 0 ? "0" : findProgress(count, totalTasks);
+
+      //   overallCount += count;
+
+      //   return {
+      //     updateOne: {
+      //       filter: { _id: log._id, },
+      //       update: { $set: { tasks, count, progress, }, },
+      //     },
+      //   };
+      // });
+
+      // if (bulkOps.length) {
+      //   await DateLogModel.bulkWrite(bulkOps, {
+      //     session,
+      //   });
+      // }
+
+      // const overallTotal = dashboard.totalDays * totalTasks;
+      // const overallProgress = overallTotal === 0 ? "0" : findProgress(overallCount, overallTotal);
+
+      // dashboard.totalCount = overallCount;
+      // dashboard.progress = overallProgress;
+
+      // await dashboard.save({ session });
+
+      // response = {
+      //   deletedTaskID: taskID,
+      //   progress: {
+      //     overallProgress: {
+      //       total: overallTotal,
+      //       count: overallCount,
+      //       progress: overallProgress,
+      //     },
+      //     dateLogProgress: bulkOps.map((_, index) => ({
+      //       fullDate: dateLogs[index].fullDate,
+      //       count: dateLogs[index].tasks.filter(
+      //         id => id.toString() !== taskID
+      //       ).length,
+      //       progress:
+      //         totalTasks === 0
+      //           ? "0"
+      //           : findProgress( dateLogs[index].tasks.filter( id => id.toString() !== taskID ).length, totalTasks ),
+      //     })),
+      //   },
+      // };
+
+    });
+
+    return res.status(200).json({
+      success: true,
+      ...response,
+    });
+
+
+
+
+
+
+
     // ownership check
-    const dashboardExists = await MonthModel.exists({
-      _id: monthDashID,
-      userID,
-    });
+    // const dashboardExists = await MonthModel.exists({
+    //   _id: monthDashID,
+    //   userID,
+    // });
 
-    if (!dashboardExists) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
-    }
+    // if (!dashboardExists) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Access denied",
+    //   });
+    // }
 
-    const deletedTask = await TaskModel.findOneAndDelete({
-      _id: taskID,
-      monthDashID,
-    });
+    // const deletedTask = await TaskModel.findOneAndDelete({
+    //   _id: taskID,
+    //   monthDashID,
+    // });
 
-    if (!deletedTask) {
-      return res.status(404).json({
-        success: false,
-        message: "Task not found",
-      });
-    }
+    // if (!deletedTask) {
+    //   return res.status(404).json({
+    //     success: false,
+    //     message: "Task not found",
+    //   });
+    // }
 
-    // remove task references from logs
-    await DateLogModel.updateMany(
-      { monthDashID },
-      {
-        $pull: {
-          tasks: taskID,
-        },
-      },
-    );
+    // // remove task references from logs
+    // await DateLogModel.updateMany(
+    //   { monthDashID },
+    //   {
+    //     $pull: {
+    //       tasks: taskID,
+    //     },
+    //   },
+    // );
 
-    // parallel queries
-    const [remainingTasks, existingLogs] = await Promise.all([
-      TaskModel.find({ monthDashID }).lean(),
-      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
-    ]);
+    // // parallel queries
+    // const [remainingTasks, existingLogs] = await Promise.all([
+    //   TaskModel.find({ monthDashID }).lean(),
+    //   DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).lean(),
+    // ]);
 
-    const taskIDs = remainingTasks.map((task) => task._id.toString());
-    const progress = calculateProgress(
-      existingLogs.map((log) => ({
-        fullDate: log.fullDate,
-        tasks: log.tasks.map((task) => task.toString()),
-      })),
-      taskIDs,
-    );
+    // const taskIDs = remainingTasks.map((task) => task._id.toString());
+    // const progress = calculateProgress(
+    //   existingLogs.map((log) => ({
+    //     fullDate: log.fullDate,
+    //     tasks: log.tasks.map((task) => task.toString()),
+    //   })),
+    //   taskIDs,
+    // );
 
-    const io = getIO();
+    // const io = getIO();
 
-    io.to(userID).emit("remove-task", {
-      tasks: remainingTasks,
-      progress,
-    });
+    // io.to(userID).emit("remove-task", {
+    //   tasks: remainingTasks,
+    //   progress,
+    // });
 
-    return res.status(200).json({});
+    // return res.status(200).json({});
   } catch (error) {
     console.error(error);
-
     return res.status(500).json({
       success: false,
       message: "Something went wrong",
     });
+  } finally {
+    await session.endSession();
   }
 };
 

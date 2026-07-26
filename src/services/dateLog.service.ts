@@ -93,3 +93,72 @@ export const updateMonthProgress = async ({ session, monthDashID, overallTotal, 
     progress,
   };
 };
+
+export const deleteTask = async ({ session, taskID, monthDashID, }: any) => {
+  const deletedTask = await TaskModel.findOneAndDelete( { _id: taskID, monthDashID, }, { session, } );
+
+  if (!deletedTask) {
+    throw new Error("Task not found");
+  }
+
+  const totalTasks = await TaskModel.countDocuments({ monthDashID, }).session(session);
+
+  return { deletedTask, totalTasks, };
+};
+
+export const updateDateLogsAfterTaskDelete = async ({ session, taskID, monthDashID, totalTasks, }: any)=> {
+
+  const dateLogs = await DateLogModel.find({ monthDashID, }).session(session);
+
+  let overallCount = 0;
+
+  const response: any[] = [];
+
+  const bulkOps = dateLogs.map((log) => {
+    const tasks = log.tasks.filter(
+      id => id.toString() !== taskID
+    );
+    const count = tasks.length;
+    const progress = totalTasks === 0 ? "0" : findProgress(count, totalTasks);
+    overallCount += count;
+    response.push({
+      fullDate: log.fullDate,
+      count,
+      progress,
+    });
+
+    return {
+      updateOne: {
+        filter: { _id: log._id, },
+        update: { $set: { tasks, count, progress, }, },
+      },
+    };
+  });
+
+  if (bulkOps.length) {
+    await DateLogModel.bulkWrite(
+      bulkOps,
+      { session }
+    );
+  }
+
+  return { overallCount, dateLogProgress: response, };
+};
+
+export const updateMonthAfterTaskDelete = async ({ session, monthDashID, totalTasks, totalDays, overallCount, }: any) => {
+
+  const overallTotal = totalTasks * totalDays;
+  const progress = overallTotal === 0 ? "0" : findProgress( overallCount, overallTotal );
+
+  await MonthModel.findByIdAndUpdate(
+    monthDashID,
+    { totalCount: overallCount, progress, },
+    { session, }
+  );
+
+  return {
+    total: overallTotal,
+    count: overallCount,
+    progress,
+  };
+};
