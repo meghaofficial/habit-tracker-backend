@@ -26,12 +26,6 @@ export const updateDateLog = async ({ session, monthDashID, taskID, marked, norm
 
   await updated.save({ session });
 
-  // await DateLogModel.updateOne(
-  //   { _id: updated._id, },
-  //   { $set: { count: updated.tasks.length, progress: findProgress(updated.tasks.length, totalTasks), } },
-  //   { session, }
-  // );
-
   return {
     count: updated.count,
     progress: updated.progress,
@@ -108,7 +102,7 @@ export const deleteTask = async ({ session, taskID, monthDashID, }: any) => {
 
 export const updateDateLogsAfterTaskDelete = async ({ session, taskID, monthDashID, totalTasks, }: any)=> {
 
-  const dateLogs = await DateLogModel.find({ monthDashID, }).session(session);
+  const dateLogs = await DateLogModel.find({ monthDashID, }).sort({ fullDate: 1 }).session(session);
 
   let overallCount = 0;
 

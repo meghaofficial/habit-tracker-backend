@@ -128,7 +128,7 @@ export const addTask = async (req: Request, res: Response) => {
       // Existing data
       const [tasks, dateLogs] = await Promise.all([
         TaskModel.find({ monthDashID }).sort({ fullDate: 1 }).session(session),
-        DateLogModel.find({ monthDashID }).session(session),
+        DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).session(session),
       ]);
 
       if (tasks.length >= 10) {
@@ -620,10 +620,6 @@ function calculateProgress(
     taskProgress,
   };
 }
-
-// function calculateDateProgress(fullDate: Date, markedTasksLen: string[], totalTasks: number) {
-//   const progress = ((count / filteredDateLogs.length) * 100).toFixed(2);
-// }
 
 export const getMonthlyNote = async (req: Request, res: Response) => {
   try {
