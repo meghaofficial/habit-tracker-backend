@@ -136,3 +136,10 @@ export interface ProgressI {
   dateLogProgress: DateLogProgressI[];
   taskProgress: TaskProgressI[];
 }
+
+export interface AnalysisI {
+  monthDashID: string;
+  perfectDays: number;
+  streak: number;
+  perfectStreak: number;
+}

@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
 import { DateLogModel, TaskModel } from "../models/dateLogModel";
+import Analysis from "../models/AnalysisModel";
+import { MonthModel } from "../models/dashboardModel";
+import { findProgress } from "../helper/utils";
 
 export const getTodayActivity = async (req: Request, res: Response) => {
   try {
@@ -377,14 +380,103 @@ export const getStreakWithMoreData = async (req: Request, res: Response) => {
   }
 };
 
-// export const getTodayActivity = async (req: Request, res: Response) => {
-//   try {
+// New Additions
+export const getTopLevelAnalysis = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const { monthDashID } = req.query;
 
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error"
-//     })
-//   }
-// }
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID is required.",
+      });
+    }
+
+    const existingAnalysis = await Analysis.findOne({ monthDashID });
+    const [dashboard, dateLogs, totalTasks] = await Promise.all([
+      MonthModel.findOne({ _id: monthDashID, userID }),
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }),
+      TaskModel.find({ monthDashID }).countDocuments(),
+    ]);
+
+    if (!dashboard) {
+      return res.status(404).json({
+        message: "Check your subscription plan",
+      });
+    }
+
+    if (dateLogs.length === 0) {
+      return res.status(404).json({
+        message: "Contact to Habitify Support",
+      });
+    }
+
+    const date = new Date();
+    const lastIndex = date.getDate();
+
+    if (existingAnalysis) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          consistencyRate: dashboard.progress,
+          perfectDays: existingAnalysis.perfectDays,
+          totalDaysInMonth: dashboard.totalDays,
+          avgPerDay: dashboard.totalCount,
+          timeElapsed: lastIndex,
+          streak: existingAnalysis.streak,
+          perfectStreak: existingAnalysis.perfectStreak,
+        },
+      });
+    }
+
+    let perfectDays = 0;
+    let perfectStreak = 0;
+    let streak = 0;
+
+    if (totalTasks <= 0) {
+      streak = 0;
+      perfectStreak = 0;
+    } else {
+      dateLogs.forEach((log) => {
+        if (totalTasks > 0 && log.tasks.length === totalTasks) perfectDays++;
+      });
+
+      for (let i = 0; i < lastIndex; i++) {
+        if (dateLogs[i].tasks.length < totalTasks) {
+          perfectStreak = Math.max(perfectStreak, streak);
+          streak = 0;
+        } else {
+          streak++;
+        }
+      }
+      perfectStreak = Math.max(perfectStreak, streak);
+    }
+
+    const analysisData = await Analysis.create({
+      monthDashID: monthDashID.toString(),
+      perfectDays,
+      streak,
+      perfectStreak,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        consistencyRate: dashboard.progress,
+        perfectDays: analysisData.perfectDays,
+        totalDaysInMonth: dashboard.totalDays,
+        avgPerDay: dashboard.totalCount,
+        timeElapsed: lastIndex*totalTasks,
+        streak,
+        perfectStreak,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
