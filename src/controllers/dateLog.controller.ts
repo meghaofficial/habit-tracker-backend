@@ -10,7 +10,15 @@ import { TaskModel } from "../models/dateLogModel";
 import mongoose from "mongoose";
 import { getIO } from "../socket/socket";
 import { findProgress } from "../helper/utils";
-import { deleteTask, updateDateLog, updateDateLogsAfterTaskDelete, updateMonthAfterTaskDelete, updateMonthProgress, updateTaskProgress } from "../services/dateLog.service";
+import {
+  deleteTask,
+  updateDateLog,
+  updateDateLogsAfterTaskDelete,
+  updateMonthAfterTaskDelete,
+  updateMonthProgress,
+  updateTaskProgress,
+} from "../services/dateLog.service";
+import { updateAnalysis } from "../services/analysis.service";
 
 export const getDateLog = async (req: Request, res: Response) => {
   try {
@@ -88,7 +96,6 @@ export const getDateLog = async (req: Request, res: Response) => {
 };
 
 export const addTask = async (req: Request, res: Response) => {
-
   const session = await mongoose.startSession();
 
   try {
@@ -114,7 +121,6 @@ export const addTask = async (req: Request, res: Response) => {
     let response: any;
 
     await session.withTransaction(async () => {
-
       // Ownership
       const dashboard = await MonthModel.findOne({
         _id: monthDashID,
@@ -128,7 +134,9 @@ export const addTask = async (req: Request, res: Response) => {
       // Existing data
       const [tasks, dateLogs] = await Promise.all([
         TaskModel.find({ monthDashID }).sort({ fullDate: 1 }).session(session),
-        DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).session(session),
+        DateLogModel.find({ monthDashID })
+          .sort({ fullDate: 1 })
+          .session(session),
       ]);
 
       if (tasks.length >= 10) {
@@ -143,7 +151,7 @@ export const addTask = async (req: Request, res: Response) => {
             taskName: taskName.trim(),
           },
         ],
-        { session }
+        { session },
       );
 
       const totalTasks = tasks.length + 1;
@@ -169,16 +177,13 @@ export const addTask = async (req: Request, res: Response) => {
             },
           },
         })),
-        { session }
+        { session },
       );
 
       // Update month progress
       const overallTotal = dashboard.totalDays * totalTasks;
 
-      dashboard.progress = findProgress(
-        dashboard.totalCount,
-        overallTotal
-      );
+      dashboard.progress = findProgress(dashboard.totalCount, overallTotal);
 
       await dashboard.save({ session });
 
@@ -193,12 +198,11 @@ export const addTask = async (req: Request, res: Response) => {
           dateLogProgress: updatedDateLogProgress,
         },
       };
-
     });
 
     return res.status(201).json({
       success: true,
-      ...response
+      ...response,
     });
 
     // const io = getIO();
@@ -254,7 +258,6 @@ export const getTask = async (req: Request, res: Response) => {
 
 export const markTask = async (req: Request, res: Response) => {
   try {
-    
     const userID = (req as any).user?.id;
     const monthDashID = req.query.monthDashID as string;
     const taskID = req.query.taskID as string;
@@ -310,20 +313,14 @@ export const markTask = async (req: Request, res: Response) => {
     const overallTotal = totalTasks * daysInMonth;
     const date = new Date(fullDate);
     const normalizedUtcDate = new Date(
-      Date.UTC(
-        date.getUTCFullYear(),
-        date.getUTCMonth(),
-        date.getUTCDate()
-      )
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
     );
     const session = await mongoose.startSession();
 
     try {
-      
       let response;
 
       await session.withTransaction(async () => {
-
         console.log("Transaction started");
 
         const day = await updateDateLog({
@@ -336,14 +333,16 @@ export const markTask = async (req: Request, res: Response) => {
         });
         console.log("DateLog done");
 
-        const dateLogs = await DateLogModel.find({ monthDashID, }).session(session);
+        const dateLogs = await DateLogModel.find({ monthDashID }).session(
+          session,
+        );
 
         const task = await updateTaskProgress({
           session,
           monthDashID,
           taskID,
           daysInMonth,
-          dateLogs
+          dateLogs,
         });
         console.log("Task done");
 
@@ -351,9 +350,17 @@ export const markTask = async (req: Request, res: Response) => {
           session,
           monthDashID,
           overallTotal,
-          dateLogs
+          dateLogs,
         });
         console.log("Month done");
+
+        await updateAnalysis({
+          session,
+          monthDashID,
+          dateLogs,
+          totalTasks,
+        });
+        console.log("Analysis done");
 
         console.log("Transaction committed");
 
@@ -374,26 +381,21 @@ export const markTask = async (req: Request, res: Response) => {
             progress: task.progress,
           },
         };
-
       });
 
       return res.status(200).json({
         success: true,
         progress: response,
       });
-
     } catch (error) {
-      
       console.error(error);
       return res.status(500).json({
         success: false,
         message: "Something went wrong",
       });
-
-    } finally { 
+    } finally {
       await session.endSession();
     }
-
   } catch (error) {
     console.error(error);
 
@@ -405,7 +407,6 @@ export const markTask = async (req: Request, res: Response) => {
 };
 
 export const removeTask = async (req: Request, res: Response) => {
-
   const session = await mongoose.startSession();
 
   try {
@@ -444,8 +445,10 @@ export const removeTask = async (req: Request, res: Response) => {
     let response: any;
 
     await session.withTransaction(async () => {
-
-      const dashboard = await MonthModel.findOne({ _id: monthDashID, userID, }).session(session);
+      const dashboard = await MonthModel.findOne({
+        _id: monthDashID,
+        userID,
+      }).session(session);
 
       if (!dashboard) {
         throw new Error("Access denied");
@@ -473,13 +476,12 @@ export const removeTask = async (req: Request, res: Response) => {
       });
 
       response = {
-          deletedTaskID: taskID,
-          progress: {
-              overallProgress: overall,
-              dateLogProgress: day.dateLogProgress,
-          },
+        deletedTaskID: taskID,
+        progress: {
+          overallProgress: overall,
+          dateLogProgress: day.dateLogProgress,
+        },
       };
-
     });
 
     return res.status(200).json({
