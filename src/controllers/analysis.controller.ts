@@ -2,8 +2,6 @@ import { Request, Response } from "express";
 import { DateLogModel, TaskModel } from "../models/dateLogModel";
 import Analysis from "../models/AnalysisModel";
 import { MonthModel } from "../models/dashboardModel";
-import { findProgress } from "../helper/utils";
-import { calculateTopLevelAnalysis } from "../services/analysis.service";
 
 export const getTodayActivity = async (req: Request, res: Response) => {
   try {

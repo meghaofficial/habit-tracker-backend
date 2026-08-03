@@ -33,8 +33,15 @@ export const calculateTopLevelAnalysis = ({
       }
     }
 
+    const date = new Date();
+    date.setUTCHours(0, 0, 0, 0);
+
+    const lastIdx = dateLogs.findIndex(
+      (d) => d.fullDate.getTime() === date.getTime(),
+    );
+
     // Current Streak (from today backwards)
-    for (let i = dateLogs.length - 1; i >= 0; i--) {
+    for (let i = lastIdx; i >= 0; i--) {
       if (dateLogs[i].tasks.length > 0) {
         streak++;
       } else {
