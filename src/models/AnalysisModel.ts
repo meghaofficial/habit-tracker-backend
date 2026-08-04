@@ -20,6 +20,14 @@ const analysisSchema = new mongoose.Schema(
     perfectStreak: {
       type: Number,
       default: 0
+    },
+    mostConsistentHabits: {
+      type: [String],
+      default: []
+    },
+    leastConsistentHabits: {
+      type: [String],
+      default: []
     }
   },
   { timestamps: true },

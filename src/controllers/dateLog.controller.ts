@@ -298,7 +298,7 @@ export const markTask = async (req: Request, res: Response) => {
       }),
       TaskModel.find({
         monthDashID,
-      }).select("_id"),
+      }),
     ]);
 
     if (!dashboard) {
@@ -321,8 +321,6 @@ export const markTask = async (req: Request, res: Response) => {
       let response;
 
       await session.withTransaction(async () => {
-        console.log("Transaction started");
-
         const day = await updateDateLog({
           session,
           monthDashID,
@@ -331,7 +329,6 @@ export const markTask = async (req: Request, res: Response) => {
           normalizedUtcDate,
           totalTasks,
         });
-        console.log("DateLog done");
 
         const dateLogs = await DateLogModel.find({ monthDashID }).session(
           session,
@@ -344,7 +341,6 @@ export const markTask = async (req: Request, res: Response) => {
           daysInMonth,
           dateLogs,
         });
-        console.log("Task done");
 
         const overall = await updateMonthProgress({
           session,
@@ -352,17 +348,17 @@ export const markTask = async (req: Request, res: Response) => {
           overallTotal,
           dateLogs,
         });
-        console.log("Month done");
+
+        const updatedTasks = await TaskModel.find({
+          monthDashID,
+        }).session(session);
 
         await updateAnalysis({
           session,
           monthDashID,
           dateLogs,
-          totalTasks,
+          tasks: updatedTasks,
         });
-        console.log("Analysis done");
-
-        console.log("Transaction committed");
 
         response = {
           overallProgress: {

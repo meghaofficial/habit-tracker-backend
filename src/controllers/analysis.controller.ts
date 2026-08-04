@@ -424,6 +424,8 @@ export const getTopLevelAnalysis = async (req: Request, res: Response) => {
         timeElapsed: lastIndex * totalTasks,
         streak: existingAnalysis.streak,
         perfectStreak: existingAnalysis.perfectStreak,
+        mostConsistentHabits: existingAnalysis.mostConsistentHabits || [],
+        leastConsistentHabits: existingAnalysis.leastConsistentHabits || []
       },
     });
   } catch (error) {

@@ -142,4 +142,6 @@ export interface AnalysisI {
   perfectDays: number;
   streak: number;
   perfectStreak: number;
+  mostConsistentHabits: string[];
+  leastConsistentHabits: string[];
 }

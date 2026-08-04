@@ -1,6 +1,6 @@
 import { ClientSession } from "mongoose";
 import Analysis from "../models/AnalysisModel";
-import { DateLogI } from "../types";
+import { DateLogI, TaskI } from "../types";
 
 export const calculateTopLevelAnalysis = ({
   dateLogs,
@@ -57,21 +57,67 @@ export const calculateTopLevelAnalysis = ({
   };
 };
 
+export const calculateTopAndLeastConsistentHabits = ({
+  tasks,
+}: {
+  tasks: TaskI[];
+}) => {
+  const totalTasks = tasks.length;
+  const mostConsistentHabits: string[] = [];
+  const leastConsistentHabits: string[] = [];
+
+  const habits = {
+    mostConsistentHabits,
+    leastConsistentHabits,
+  };
+
+  if (tasks.length <= 0) {
+    return habits;
+  }
+
+  const sortedTasks = [...tasks].sort((a, b) => b.count - a.count);
+
+  if (sortedTasks[0].count === 0) {
+    return habits;
+  }
+
+  const highest = sortedTasks[0].count;
+  const lowest = sortedTasks[totalTasks - 1].count;
+
+  sortedTasks.forEach((task) => {
+    if (task.count === highest) {
+      mostConsistentHabits.push(task.taskName);
+    }
+
+    if (task.count === lowest) {
+      leastConsistentHabits.push(task.taskName);
+    }
+  });
+
+  return habits;
+};
+
 export const updateAnalysis = async ({
   session,
   monthDashID,
   dateLogs,
-  totalTasks,
+  tasks,
 }: {
   session: ClientSession;
   monthDashID: string;
   dateLogs: DateLogI[];
-  totalTasks: number;
+  tasks: TaskI[];
 }) => {
+  const totalTasks = tasks.length;
   const { perfectDays, streak, perfectStreak } = calculateTopLevelAnalysis({
     dateLogs,
     totalTasks,
   });
+
+  const { mostConsistentHabits, leastConsistentHabits } =
+    calculateTopAndLeastConsistentHabits({
+      tasks,
+    });
 
   await Analysis.findOneAndUpdate(
     { monthDashID },
@@ -79,6 +125,8 @@ export const updateAnalysis = async ({
       perfectDays,
       streak,
       perfectStreak,
+      mostConsistentHabits,
+      leastConsistentHabits,
     },
     {
       upsert: true,
