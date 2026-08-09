@@ -393,9 +393,10 @@ export const getTopLevelAnalysis = async (req: Request, res: Response) => {
     }
 
     const existingAnalysis = await Analysis.findOne({ monthDashID });
-    const [dashboard, totalTasks] = await Promise.all([
+    const [dashboard, totalTasks, dateLogs] = await Promise.all([
       MonthModel.findOne({ _id: monthDashID, userID }),
       TaskModel.find({ monthDashID }).countDocuments(),
+      DateLogModel.find({ monthDashID }).sort({ fullDate: 1 })
     ]);
 
     if (!dashboard) {
@@ -412,6 +413,15 @@ export const getTopLevelAnalysis = async (req: Request, res: Response) => {
         success: false,
         data: "Analysis not found",
       });
+    }
+
+    const lastIdx = dateLogs.findIndex(
+      (d) => d.fullDate.getDate() === date.getDate(),
+    );
+
+    // Update Streak
+    if (dateLogs[lastIdx].tasks.length === 0) {
+      await Analysis.findOneAndUpdate({ monthDashID }, { streak: 0 }, { upsert: true, new: true, })
     }
 
     return res.status(200).json({

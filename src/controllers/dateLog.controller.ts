@@ -330,7 +330,7 @@ export const markTask = async (req: Request, res: Response) => {
           totalTasks,
         });
 
-        const dateLogs = await DateLogModel.find({ monthDashID }).session(
+        const dateLogs = await DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).session(
           session,
         );
 

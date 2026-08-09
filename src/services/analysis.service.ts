@@ -37,7 +37,7 @@ export const calculateTopLevelAnalysis = ({
     date.setUTCHours(0, 0, 0, 0);
 
     const lastIdx = dateLogs.findIndex(
-      (d) => d.fullDate.getTime() === date.getTime(),
+      (d) => d.fullDate.getDate() === date.getDate(),
     );
 
     // Current Streak (from today backwards)
