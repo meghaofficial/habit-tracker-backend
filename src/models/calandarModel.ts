@@ -36,7 +36,6 @@ const calandarSchema = new mongoose.Schema(
     description: {
       type: String,
       trim: true,
-      required: true,
       default: "",
     },
   },

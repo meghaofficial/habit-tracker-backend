@@ -4,9 +4,10 @@ import Calandar from "../models/calandarModel";
 export const createCalandarData = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
-    const { day, month, year, status, title, description } = req.body;
+    const { day, month, year, status, title } = req.body;
+    const description = req.body.description ? req.body.description : "";
 
-    if (!day || !month || !year || !status || !title || !description) {
+    if (!day || !month || !year || !status || !title) {
       return res.status(400).json({
         success: false,
         message: "Missing field detected",
