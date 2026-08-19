@@ -7,6 +7,10 @@ const monthDashboardSchema = new mongoose.Schema({
   year: { type: Number, required: true },
   totalDays: Number,
   firstDay: Number,
+  totalTasks: {
+    type: Number,
+    default: 0
+  },
   totalCount: {
     type: Number,
     default: 0

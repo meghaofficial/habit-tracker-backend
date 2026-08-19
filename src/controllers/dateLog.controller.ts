@@ -184,6 +184,7 @@ export const addTask = async (req: Request, res: Response) => {
       const overallTotal = dashboard.totalDays * totalTasks;
 
       dashboard.progress = findProgress(dashboard.totalCount, overallTotal);
+      dashboard.totalTasks = totalTasks;
 
       await dashboard.save({ session });
 

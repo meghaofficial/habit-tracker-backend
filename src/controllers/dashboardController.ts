@@ -76,6 +76,7 @@ export const getDashboard = async (
         userID,
         year,
         month,
+        totalTasks: 0,
         totalDays,
         firstDay,
       });

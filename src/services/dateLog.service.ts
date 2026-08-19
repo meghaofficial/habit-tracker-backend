@@ -146,7 +146,7 @@ export const updateMonthAfterTaskDelete = async ({ session, monthDashID, totalTa
 
   await MonthModel.findByIdAndUpdate(
     monthDashID,
-    { totalCount: overallCount, progress, },
+    { totalCount: overallCount, progress, totalTasks },
     { session, }
   );
 
