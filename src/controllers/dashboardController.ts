@@ -11,8 +11,8 @@ export const getDashboard = async (
 
     const today = new Date();
 
-    const currYear = today.getUTCFullYear();
-    const currMonth = today.getUTCMonth();
+    const currYear = today.getFullYear();
+    const currMonth = today.getMonth();
 
     const year =
       req.query.year !== undefined

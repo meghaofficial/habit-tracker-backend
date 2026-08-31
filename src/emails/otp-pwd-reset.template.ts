@@ -2,33 +2,66 @@ export const resetPasswordOTPTemplate = (
   username: string,
   otp: string
 ) => `
-<div style="background:#f4f7fb;padding:40px 20px;font-family:Arial,sans-serif;">
+<div style="
+  margin:0;
+  padding:40px 20px;
+  background:#f5f6fa;
+  font-family:Arial,Helvetica,sans-serif;
+  color:#111827;
+">
 
+  <!-- Main Container -->
   <div style="
+    width:100%;
     max-width:600px;
     margin:0 auto;
     background:#ffffff;
-    border-radius:20px;
+    border:1px solid #e8eaf0;
+    border-radius:18px;
     overflow:hidden;
-    box-shadow:0 10px 30px rgba(0,0,0,0.08);
   ">
 
-    <!-- Header -->
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
     <div style="
-      background:linear-gradient(135deg,#3b82f6,#6366f1);
-      padding:30px;
+      padding:32px 30px;
+      background:#17182b;
       text-align:center;
     ">
+
+      <!-- Brand -->
       <div style="
-        width:70px;
-        height:70px;
-        margin:0 auto 15px;
-        border-radius:50%;
-        background:rgba(255,255,255,0.15);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-size:30px;
+        display:inline-block;
+        margin-bottom:22px;
+        padding:8px 14px;
+        border:1px solid rgba(129,140,248,0.22);
+        border-radius:10px;
+        background:rgba(99,102,241,0.10);
+      ">
+        <span style="
+          color:#a5b4fc;
+          font-size:12px;
+          font-weight:700;
+          letter-spacing:1.5px;
+        ">
+          HABITIFY
+        </span>
+      </div>
+
+      <!-- Lock Icon -->
+      <div style="
+        width:56px;
+        height:56px;
+        margin:0 auto 18px;
+        border:1px solid rgba(129,140,248,0.20);
+        border-radius:14px;
+        background:rgba(99,102,241,0.10);
+        text-align:center;
+        line-height:56px;
+        font-size:23px;
+        color:#a5b4fc;
       ">
         🔒
       </div>
@@ -36,89 +69,305 @@ export const resetPasswordOTPTemplate = (
       <h1 style="
         margin:0;
         color:#ffffff;
-        font-size:28px;
+        font-size:25px;
+        line-height:1.3;
         font-weight:700;
+        letter-spacing:-0.3px;
       ">
         Password Reset Request
       </h1>
+
+      <p style="
+        margin:9px 0 0;
+        color:#9ca3af;
+        font-size:13px;
+        line-height:1.6;
+      ">
+        Verify your identity to continue.
+      </p>
+
     </div>
 
-    <!-- Body -->
-    <div style="padding:40px 30px;">
+
+    <!-- =====================================================
+         BODY
+    ====================================================== -->
+
+    <div style="
+      padding:34px 30px 30px;
+    ">
 
       <h2 style="
-        margin:0 0 15px 0;
-        color:#111827;
-        font-size:22px;
+        margin:0 0 12px;
+        color:#171923;
+        font-size:20px;
+        line-height:1.4;
+        font-weight:700;
       ">
         Hello ${username},
       </h2>
 
       <p style="
-        color:#6b7280;
-        font-size:15px;
-        line-height:1.8;
-        margin-bottom:30px;
-      ">
-        We received a request to reset the password for your Habitify account.
-        Use the verification code below to continue.
-      </p>
-
-      <!-- OTP Box -->
-      <div style="text-align:center;margin:35px 0;">
-        <div style="
-          display:inline-block;
-          padding:18px 40px;
-          background:#eff6ff;
-          border:2px dashed #3b82f6;
-          border-radius:16px;
-          color:#2563eb;
-          font-size:32px;
-          font-weight:700;
-          letter-spacing:8px;
-        ">
-          ${otp}
-        </div>
-      </div>
-
-      <div style="
-        background:#fefce8;
-        border:1px solid #fde68a;
-        border-radius:12px;
-        padding:16px;
-        margin-top:25px;
-      ">
-        <p style="
-          margin:0;
-          color:#92400e;
-          font-size:14px;
-          line-height:1.7;
-        ">
-          ⏳ This OTP is valid for <strong>10 minutes</strong>.
-        </p>
-      </div>
-
-      <p style="
-        margin-top:25px;
-        color:#6b7280;
+        margin:0;
+        color:#667085;
         font-size:14px;
         line-height:1.8;
       ">
-        If you did not request a password reset, please ignore this email.
-        Your account will remain secure and no changes will be made.
+        We received a request to reset the password for your
+        Habitify account. Use the verification code below to
+        verify your identity and continue.
+      </p>
+
+
+      <!-- =================================================
+           OTP SECTION
+      ================================================== -->
+
+      <div style="
+        margin:28px 0 24px;
+        padding:20px;
+        border:1px solid #e4e7ec;
+        border-radius:14px;
+        background:#fafbff;
+        text-align:center;
+      ">
+
+        <p style="
+          margin:0 0 12px;
+          color:#667085;
+          font-size:10px;
+          font-weight:700;
+          letter-spacing:1.5px;
+          text-transform:uppercase;
+        ">
+          Verification Code
+        </p>
+
+        <div style="
+          display:inline-block;
+          padding:13px 22px;
+          border:1px dashed #818cf8;
+          border-radius:11px;
+          background:#eef2ff;
+        ">
+          <span style="
+            color:#4f46e5;
+            font-size:30px;
+            line-height:1;
+            font-weight:700;
+            letter-spacing:7px;
+          ">
+            ${otp}
+          </span>
+        </div>
+
+        <p style="
+          margin:13px 0 0;
+          color:#98a2b3;
+          font-size:11px;
+        ">
+          Enter this code in Habitify to continue.
+        </p>
+
+      </div>
+
+
+      <!-- =================================================
+           EXPIRY NOTICE
+      ================================================== -->
+
+      <div style="
+        padding:15px 16px;
+        border:1px solid #fde68a;
+        border-radius:12px;
+        background:#fffbeb;
+      ">
+
+        <table
+          role="presentation"
+          cellpadding="0"
+          cellspacing="0"
+          border="0"
+          width="100%"
+        >
+          <tr>
+
+            <td
+              valign="top"
+              style="
+                width:32px;
+                padding-right:10px;
+              "
+            >
+              <div style="
+                width:28px;
+                height:28px;
+                border-radius:8px;
+                background:#fef3c7;
+                color:#d97706;
+                text-align:center;
+                line-height:28px;
+                font-size:14px;
+              ">
+                ⏱
+              </div>
+            </td>
+
+            <td valign="top">
+
+              <p style="
+                margin:0 0 3px;
+                color:#92400e;
+                font-size:13px;
+                font-weight:700;
+              ">
+                Code expires soon
+              </p>
+
+              <p style="
+                margin:0;
+                color:#9a6b32;
+                font-size:12px;
+                line-height:1.6;
+              ">
+                This verification code is valid for
+                <strong>10 minutes</strong>.
+              </p>
+
+            </td>
+
+          </tr>
+        </table>
+
+      </div>
+
+
+      <!-- =================================================
+           SECURITY NOTICE
+      ================================================== -->
+
+      <div style="
+        margin-top:12px;
+        padding:15px 16px;
+        border:1px solid #e8eaf0;
+        border-radius:12px;
+        background:#fafafa;
+      ">
+
+        <table
+          role="presentation"
+          cellpadding="0"
+          cellspacing="0"
+          border="0"
+          width="100%"
+        >
+          <tr>
+
+            <td
+              valign="top"
+              style="
+                width:32px;
+                padding-right:10px;
+              "
+            >
+              <div style="
+                width:28px;
+                height:28px;
+                border-radius:8px;
+                background:#eef2ff;
+                color:#4f46e5;
+                text-align:center;
+                line-height:28px;
+                font-size:13px;
+                font-weight:bold;
+              ">
+                i
+              </div>
+            </td>
+
+            <td valign="top">
+
+              <p style="
+                margin:0 0 3px;
+                color:#475467;
+                font-size:13px;
+                font-weight:700;
+              ">
+                Didn't request this?
+              </p>
+
+              <p style="
+                margin:0;
+                color:#667085;
+                font-size:12px;
+                line-height:1.7;
+              ">
+                You can safely ignore this email. Your password
+                will not be changed unless this verification
+                process is completed.
+              </p>
+
+            </td>
+
+          </tr>
+        </table>
+
+      </div>
+
+
+      <!-- Closing -->
+      <p style="
+        margin:24px 0 0;
+        color:#98a2b3;
+        font-size:12px;
+        line-height:1.7;
+        text-align:center;
+      ">
+        For your security, never share this verification code
+        with anyone.
       </p>
 
     </div>
 
-    <!-- Footer -->
+
+    <!-- =====================================================
+         FOOTER
+    ====================================================== -->
+
     <div style="
-      border-top:1px solid #e5e7eb;
-      padding:20px;
+      border-top:1px solid #eaecf0;
+      padding:20px 25px;
       text-align:center;
-      color:#9ca3af;
-      font-size:12px;
+      background:#fafafa;
     ">
-      © 2026 Habitify. All rights reserved.
+
+      <p style="
+        margin:0;
+        color:#667085;
+        font-size:12px;
+        font-weight:600;
+      ">
+        Habitify
+      </p>
+
+      <p style="
+        margin:6px 0 0;
+        color:#98a2b3;
+        font-size:11px;
+        line-height:1.6;
+      ">
+        This is an automated security notification.
+        Please do not reply to this email.
+      </p>
+
+      <p style="
+        margin:10px 0 0;
+        color:#b0b7c3;
+        font-size:10px;
+      ">
+        © 2026 Habitify. All rights reserved.
+      </p>
+
     </div>
 
   </div>

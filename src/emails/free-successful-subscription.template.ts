@@ -1,4 +1,4 @@
-export const subsSuccTemplate = (
+export const freeSubsSuccTemplate = (
   email: string,
   startDate: Date,
   endDate: Date
@@ -56,14 +56,14 @@ export const subsSuccTemplate = (
         width:58px;
         height:58px;
         margin:0 auto 18px;
-        border:1px solid rgba(52,211,153,0.22);
+        border:1px solid rgba(129,140,248,0.22);
         border-radius:15px;
-        background:rgba(16,185,129,0.10);
+        background:rgba(99,102,241,0.10);
         text-align:center;
         line-height:58px;
         font-size:24px;
       ">
-        ✓
+        ✦
       </div>
 
       <h1 style="
@@ -74,7 +74,7 @@ export const subsSuccTemplate = (
         font-weight:700;
         letter-spacing:-0.4px;
       ">
-        Subscription Activated
+        Your Free Plan Is Active
       </h1>
 
       <p style="
@@ -83,7 +83,7 @@ export const subsSuccTemplate = (
         font-size:13px;
         line-height:1.6;
       ">
-        Your Habitify membership is now active.
+        Your Habitify journey starts here.
       </p>
 
     </div>
@@ -104,7 +104,7 @@ export const subsSuccTemplate = (
         line-height:1.4;
         font-weight:700;
       ">
-        Payment successful 🎉
+        Welcome to Habitify 🎉
       </h2>
 
       <p style="
@@ -113,22 +113,22 @@ export const subsSuccTemplate = (
         font-size:14px;
         line-height:1.8;
       ">
-        Your subscription payment has been successfully
-        processed. Your premium access is now available
-        on your Habitify account.
+        Your free subscription has been successfully activated.
+        You can now start building better habits and make the
+        most of your Habitify experience.
       </p>
 
 
       <!-- =================================================
-           SUCCESS MESSAGE
+           ACTIVATION NOTICE
       ================================================== -->
 
       <div style="
         margin-top:26px;
         padding:16px 17px;
-        border:1px solid #a7f3d0;
+        border:1px solid #c7d2fe;
         border-radius:12px;
-        background:#ecfdf5;
+        background:#eef2ff;
       ">
 
         <table
@@ -151,8 +151,8 @@ export const subsSuccTemplate = (
                 width:28px;
                 height:28px;
                 border-radius:8px;
-                background:#d1fae5;
-                color:#059669;
+                background:#e0e7ff;
+                color:#4f46e5;
                 text-align:center;
                 line-height:28px;
                 font-size:14px;
@@ -166,21 +166,21 @@ export const subsSuccTemplate = (
 
               <p style="
                 margin:0 0 3px;
-                color:#047857;
+                color:#4338ca;
                 font-size:13px;
                 font-weight:700;
               ">
-                Subscription confirmed
+                Free plan activated
               </p>
 
               <p style="
                 margin:0;
-                color:#4b7a6b;
+                color:#5b65a5;
                 font-size:12px;
                 line-height:1.6;
               ">
-                Your payment was successful and your
-                membership period has been activated.
+                Your account is ready and your free membership
+                is available immediately.
               </p>
 
             </td>
@@ -211,7 +211,7 @@ export const subsSuccTemplate = (
           letter-spacing:0.8px;
           text-transform:uppercase;
         ">
-          Subscription Details
+          Membership Details
         </p>
 
         <table
@@ -295,79 +295,62 @@ export const subsSuccTemplate = (
 
           </tr>
 
+          <tr>
+
+            <td style="
+              padding:7px 0;
+              color:#98a2b3;
+              font-size:12px;
+            ">
+              Plan
+            </td>
+
+            <td style="
+              padding:7px 0;
+              color:#344054;
+              font-size:12px;
+              font-weight:600;
+            ">
+              Free
+            </td>
+
+          </tr>
+
         </table>
 
       </div>
 
 
       <!-- =================================================
-           ACCESS MESSAGE
+           WHAT'S NEXT
       ================================================== -->
 
       <div style="
         margin-top:12px;
-        padding:15px 16px;
+        padding:16px 17px;
         border:1px solid #eaecf0;
         border-radius:12px;
         background:#fafafa;
       ">
 
-        <table
-          role="presentation"
-          cellpadding="0"
-          cellspacing="0"
-          border="0"
-          width="100%"
-        >
-          <tr>
+        <p style="
+          margin:0 0 8px;
+          color:#475467;
+          font-size:13px;
+          font-weight:700;
+        ">
+          Ready to get started?
+        </p>
 
-            <td
-              valign="top"
-              style="
-                width:32px;
-                padding-right:10px;
-              "
-            >
-              <div style="
-                width:28px;
-                height:28px;
-                border-radius:8px;
-                background:#eef2ff;
-                color:#4f46e5;
-                text-align:center;
-                line-height:28px;
-                font-size:13px;
-              ">
-                ✦
-              </div>
-            </td>
-
-            <td valign="top">
-
-              <p style="
-                margin:0 0 3px;
-                color:#475467;
-                font-size:13px;
-                font-weight:700;
-              ">
-                Premium access unlocked
-              </p>
-
-              <p style="
-                margin:0;
-                color:#667085;
-                font-size:12px;
-                line-height:1.7;
-              ">
-                You can now continue using your premium
-                Habitify features throughout your active
-                subscription period.
-              </p>
-
-            </td>
-
-          </tr>
-        </table>
+        <p style="
+          margin:0;
+          color:#667085;
+          font-size:12px;
+          line-height:1.7;
+        ">
+          Start tracking your habits, stay consistent,
+          and turn small daily actions into lasting progress.
+        </p>
 
       </div>
 
@@ -383,8 +366,7 @@ export const subsSuccTemplate = (
         line-height:1.7;
         text-align:center;
       ">
-        Thank you for choosing Habitify.
-        Keep building habits that last.
+        Small steps every day. Better habits over time.
       </p>
 
     </div>

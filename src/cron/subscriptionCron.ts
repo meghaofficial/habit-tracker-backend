@@ -9,7 +9,6 @@ export const startSubscriptionCron = () => {
     const today = new Date();
 
     try {
-      // ✅ Activate pending subscriptions
       await Subscription.updateMany(
         {
           status: "pending",
@@ -19,8 +18,6 @@ export const startSubscriptionCron = () => {
           $set: { status: "active" },
         }
       );
-
-      // ✅ Expire old subscriptions
       await Subscription.updateMany(
         {
           status: "active",

@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import Plan from "../models/plans";
 import Subscription from "../models/subscription";
 import { sendEmail } from "../services/email.service";
+import { subsSuccTemplate } from "../emails/successful-subscription.template";
+import { freeSubsSuccTemplate } from "../emails/free-successful-subscription.template";
 
 const handlePayment = async (amount: number) => {
   try {
@@ -17,6 +19,7 @@ const handlePayment = async (amount: number) => {
 export const createSubscription = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const email = (req as any).user?.email;
     const { planID, amount } = req.body;
 
     const currDate = new Date();
@@ -78,6 +81,13 @@ export const createSubscription = async (req: Request, res: Response) => {
         status: activeSubs ? "scheduled" : "active",
         paymentStatus: "free",
       });
+
+      await sendEmail({
+        to: email,
+        subject: "Free Subscription Successfull",
+        html: freeSubsSuccTemplate(email, startDate, endDate),
+      });
+
       return res.status(201).json({
         success: true,
         message: "Free subscription activated",
@@ -97,12 +107,11 @@ export const createSubscription = async (req: Request, res: Response) => {
         paymentStatus: "paid",
       });
 
-      // send email
-      // await sendEmail({
-      //   to: email,
-      //   subject: "Forgot password",
-      //   html: resetPasswordOTPTemplate(email, otp),
-      // });
+      await sendEmail({
+        to: email,
+        subject: "Subscription Successfull",
+        html: subsSuccTemplate(email, startDate, endDate),
+      });
 
       return res.status(201).json({
         success: true,
@@ -122,45 +131,6 @@ export const createSubscription = async (req: Request, res: Response) => {
     });
   }
 };
-
-// export const getActiveSubscription = async (req: Request, res: Response) => {
-//   try {
-//     const userID = (req as any).user?.id;
-
-//     const activeSubs = await Subscription.findOne({
-//       userID,
-//       status: "active",
-//       endDate: { $gt: new Date() }
-//     });
-
-//     const freeUsed = await Subscription.exists({
-//       userID,
-//       planType: "free"
-//     });
-
-//     if (!activeSubs) {
-//       return res.status(200).json({
-//         success: true,
-//         message: "No active subscription",
-//         hasUsedFree: !!freeUsed,
-//         subscription: null
-//       });
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       subscription: activeSubs,
-//       hasUsedFree: !!freeUsed
-//     });
-
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//     });
-//   }
-// };
 
 export const getActiveSubscription = async (req: Request, res: Response) => {
   try {

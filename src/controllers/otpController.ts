@@ -2,6 +2,8 @@ import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
 import OTP from "../models/otpModel";
 import User from "../models/authModel";
+import { sendEmail } from "../services/email.service";
+import { welcomeTemplate } from "../emails/welcome.template";
 
 export const verifySignupOtp = async (req: Request, res: Response) => {
   try {
@@ -36,6 +38,11 @@ export const verifySignupOtp = async (req: Request, res: Response) => {
       await newUser.save();
       await OTP.deleteOne({
         _id: registeredOTP._id,
+      });
+      await sendEmail({
+        to: email,
+        subject: "Welcome to Habitify",
+        html: welcomeTemplate(registeredOTP?.username || "", normalizedEmail),
       });
       return res.status(201).json({
         success: true,
