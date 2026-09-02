@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { canAccessDashboard } from "../middlewares/dashboardMiddleware";
 import { isAuthorized } from "../middlewares/authMiddleware";
-import { getDateLog, markTask, addTask, getTask, removeTask, updateTask, getMonthlyNote, updateMonthlyNote, getMonthlyTargets, addMonthlyTargets, updateMonthlyTargets, removeMonthlyTargets, markMonthlyTargets, getWeeklyTargets, addWeeklyTargets, updateWeeklyTargets, removeWeeklyTargets, markWeeklyTargets, resetDatelog } from "../controllers/dateLog.controller";
+import { getDateLog, markTask, addTask, getTask, removeTask, updateTask, getMonthlyNote, updateMonthlyNote, getMonthlyTargets, addMonthlyTargets, updateMonthlyTargets, removeMonthlyTargets, markMonthlyTargets, getWeeklyTargets, addWeeklyTargets, updateWeeklyTargets, removeWeeklyTargets, markWeeklyTargets, resetDatelog, checkForLastMonth, updateTaskList, getLastMonthTasks } from "../controllers/dateLog.controller";
 
 const router = Router();
 
@@ -32,5 +32,11 @@ router.patch("/update-weekly-target", isAuthorized, canAccessDashboard, updateWe
 router.patch("/mark-weekly-target", isAuthorized, canAccessDashboard, markWeeklyTargets);
 
 router.patch("/reset-date-log", isAuthorized, canAccessDashboard, resetDatelog);
+
+// New routes
+router.get("/last-month", isAuthorized, canAccessDashboard, checkForLastMonth);
+router.route("/task-list")
+  .get(isAuthorized, canAccessDashboard, getLastMonthTasks)
+  .put(isAuthorized, canAccessDashboard, updateTaskList);
 
 export const dateLogRoute = router;

@@ -19,6 +19,7 @@ import {
   updateTaskProgress,
 } from "../services/dateLog.service";
 import { updateAnalysis } from "../services/analysis.service";
+import { TaskI } from "../types";
 
 export const getDateLog = async (req: Request, res: Response) => {
   try {
@@ -100,14 +101,6 @@ export const addTask = async (req: Request, res: Response) => {
 
   try {
     const userID = (req as any).user?.id;
-
-    if (!userID) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
     const monthDashID = req.query.monthDashID as string;
     const { taskName } = req.body;
 
@@ -331,9 +324,9 @@ export const markTask = async (req: Request, res: Response) => {
           totalTasks,
         });
 
-        const dateLogs = await DateLogModel.find({ monthDashID }).sort({ fullDate: 1 }).session(
-          session,
-        );
+        const dateLogs = await DateLogModel.find({ monthDashID })
+          .sort({ fullDate: 1 })
+          .session(session);
 
         const task = await updateTaskProgress({
           session,
@@ -1456,5 +1449,212 @@ export const resetDatelog = async (req: Request, res: Response) => {
       success: false,
       message: "Something went wrong",
     });
+  }
+};
+
+// Add tasks from last month user had
+export const checkForLastMonth = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const monthStr = req.query.month as string;
+    const yearStr = req.query.year as string;
+
+    if (!monthStr || !yearStr) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing field found",
+      });
+    }
+
+    const parsedMonth = parseInt(monthStr, 10);
+    const parsedYear = parseInt(yearStr, 10);
+
+    if (isNaN(parsedMonth) || isNaN(parsedYear)) {
+      return res.status(400).json({
+        success: false,
+        message: "Month and Year must be valid numbers",
+      });
+    }
+
+    const existingMonth = await MonthModel.findOne({
+      userID,
+      month: parsedMonth === 0 ? 11 : parsedMonth - 1,
+      year: parsedMonth === 0 ? parsedYear - 1 : parsedYear,
+    });
+
+    if (!existingMonth) {
+      return res.status(200).json({
+        totalTasks: 0,
+        monthDashID: "",
+        success: false,
+      });
+    }
+
+    if (!existingMonth.totalTasks || existingMonth.totalTasks <= 0) {
+      return res.status(200).json({
+        totalTasks: 0,
+        monthDashID: "",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      totalTasks: existingMonth?.totalTasks || 0,
+      monthDashID: existingMonth?._id,
+      success: true,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const getLastMonthTasks = async (req: Request, res: Response) => {
+  try {
+    const monthDashID = req.query.monthDashID as string;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing field found",
+      });
+    }
+
+    const taskList = await TaskModel.find({
+      monthDashID,
+    });
+
+    return res.status(200).json({
+      tasks: taskList,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const updateTaskList = async (req: Request, res: Response) => {
+  const session = await mongoose.startSession();
+  try {
+    const userID = (req as any).user?.id;
+    const monthDashID = req.query.monthDashID as string;
+    const taskList: TaskI[] = req.body;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing field found",
+      });
+    }
+
+    const existingTaskCount = await TaskModel.countDocuments({ monthDashID });
+
+    if (existingTaskCount + taskList.length > 10) {
+      return res.status(400).json({
+        success: false,
+        message: "You can have a maximum of 10 tasks",
+      });
+    }
+
+    // Actual logic
+    let response: any;
+
+    await session.withTransaction(async () => {
+      // Ownership
+      const dashboard = await MonthModel.findOne({
+        _id: monthDashID,
+        userID,
+      }).session(session);
+
+      if (!dashboard) {
+        throw new Error("Access denied");
+      }
+
+      // Create task
+      await TaskModel.insertMany(
+        taskList.map((task) => ({
+          monthDashID,
+          taskName: task.taskName.trim(),
+        })),
+        { session },
+      );
+
+      // Existing data
+      const [tasks, dateLogs] = await Promise.all([
+        TaskModel.find({ monthDashID }).sort({ fullDate: 1 }).session(session),
+
+        DateLogModel.find({ monthDashID })
+          .sort({ fullDate: 1 })
+          .session(session),
+      ]);
+
+      const totalTasks = tasks.length;
+
+      // Update every DateLog progress
+      const updatedDateLogProgress = dateLogs.map((log) => {
+        const progress = findProgress(log.tasks.length, totalTasks);
+
+        return {
+          fullDate: log.fullDate,
+          count: log.count,
+          progress,
+        };
+      });
+      await DateLogModel.bulkWrite(
+        dateLogs.map((log) => ({
+          updateOne: {
+            filter: { _id: log._id },
+            update: {
+              $set: {
+                progress: findProgress(log.tasks.length, totalTasks),
+              },
+            },
+          },
+        })),
+        { session },
+      );
+
+      // Update month progress
+      const overallTotal = dashboard.totalDays * totalTasks;
+
+      dashboard.progress = findProgress(dashboard.totalCount, overallTotal);
+      dashboard.totalTasks = totalTasks;
+
+      await dashboard.save({ session });
+
+      response = {
+        tasks,
+        progress: {
+          overallProgress: {
+            total: overallTotal,
+            count: dashboard.totalCount,
+            progress: dashboard.progress,
+          },
+          dateLogProgress: updatedDateLogProgress,
+        },
+      };
+    });
+
+    return res.status(201).json({
+      success: true,
+      ...response,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  } finally {
+    await session.endSession();
   }
 };
