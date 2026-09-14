@@ -185,7 +185,7 @@ export const createSubscription = async (req: Request, res: Response) => {
     const endMonth = startDate.getUTCMonth();
 
     const endDate = new Date(
-      Date.UTC(endYear, endMonth + totalMonths + 1, 0, 23, 59, 59, 999),
+      Date.UTC(endYear, endMonth + totalMonths, 0, 23, 59, 59, 999),
     );
 
     if (planDetails.planType === "free") {
