@@ -60,7 +60,9 @@ export const getDateLog = async (req: Request, res: Response) => {
       const logsToCreate = Array.from({ length: totalDays }, (_, i) => {
         return {
           monthDashID,
-          fullDate: new Date(Date.UTC(year, month, i + 1)),
+          // fullDate: new Date(Date.UTC(year, month, i + 1)),.
+          // Assuming monthDetail.month is 1-indexed (1-12)
+          fullDate: new Date(Date.UTC(year, month - 1, i + 1)),
           tasks: [],
         };
       });
@@ -69,7 +71,13 @@ export const getDateLog = async (req: Request, res: Response) => {
         ordered: false,
       });
 
-      existingLogs = insertedLogs.map((doc) => doc.toObject());
+      // existingLogs = insertedLogs.map((doc) => doc.toObject());
+      existingLogs = insertedLogs
+        .map((doc) => doc.toObject())
+        .sort(
+          (a, b) =>
+            new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime(),
+        );
     }
 
     const taskIDs = tasks.map((t) => t._id.toString());

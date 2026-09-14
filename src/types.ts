@@ -146,3 +146,36 @@ export interface AnalysisI {
   mostConsistentHabits: string[];
   leastConsistentHabits: string[];
 }
+
+// Roadmap
+
+interface RoadmapNode {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  completed: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface RoadmapEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: "child" | "linked";
+}
+
+export interface Roadmap {
+  userId: string;
+  title: string;
+  description?: string;
+  thumbnail?: {
+    type: "url" | "upload";
+    url: string;
+  };
+  nodes: RoadmapNode[];
+  edges: RoadmapEdge[];
+  createdAt: Date;
+  updatedAt: Date;
+}

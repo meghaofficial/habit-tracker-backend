@@ -16,18 +16,135 @@ const handlePayment = async (amount: number) => {
   }
 };
 
+// export const createSubscription = async (req: Request, res: Response) => {
+//   try {
+//     const userID = (req as any).user?.id;
+//     const email = (req as any).user?.email;
+//     const { planID, amount } = req.body;
+
+//     const currDate = new Date();
+
+//     const [planDetails, subscriptions] = await Promise.all([
+//       Plan.findById(planID).lean(),
+//       Subscription.find({ userID }).sort({ endDate: -1 }).lean(),
+//     ]);
+//     if (!planDetails) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Plan not found",
+//       });
+//     }
+
+//     const hasFreeSub = subscriptions.some((sub) => sub.planType === "free");
+
+//     if (planDetails.planType === "free" && hasFreeSub) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "You have already used your free trial",
+//       });
+//     }
+
+//     const activeSubs = subscriptions.find((sub) => sub.status === "active");
+
+//     const lastSubscription = subscriptions.find((sub) =>
+//       ["active", "scheduled", "expired"].includes(sub.status),
+//     );
+
+//     let startDate = currDate;
+
+//     if (lastSubscription && lastSubscription.status !== "expired") {
+//       const currSubsEnd = new Date(lastSubscription.endDate);
+//       startDate = new Date(currSubsEnd);
+//       startDate.setDate(startDate.getUTCDate() + 1);
+//       startDate.setUTCHours(0, 0, 0, 0);
+//     }
+
+//     const totalMonths = Number(planDetails.no_of_months);
+//     const endDate = new Date(
+//       startDate.getFullYear(),
+//       startDate.getMonth() + totalMonths,
+//       0,
+//       23,
+//       59,
+//       59,
+//       999,
+//     );
+
+//     if (planDetails.planType === "free") {
+//       await Subscription.create({
+//         userID,
+//         planID,
+//         planType: "free",
+//         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+//         startDate,
+//         endDate,
+//         status: activeSubs ? "scheduled" : "active",
+//         paymentStatus: "free",
+//       });
+
+//       await sendEmail({
+//         to: email,
+//         subject: "Free Subscription Successfull",
+//         html: freeSubsSuccTemplate(email, startDate, endDate),
+//       });
+
+//       return res.status(201).json({
+//         success: true,
+//         message: "Free subscription activated",
+//       });
+//     }
+
+//     try {
+//       await handlePayment(amount);
+//       await Subscription.create({
+//         userID,
+//         planID,
+//         planType: "paid",
+//         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+//         startDate,
+//         endDate,
+//         status: activeSubs ? "scheduled" : "active",
+//         paymentStatus: "paid",
+//       });
+
+//       await sendEmail({
+//         to: email,
+//         subject: "Subscription Successfull",
+//         html: subsSuccTemplate(email, startDate, endDate),
+//       });
+
+//       return res.status(201).json({
+//         success: true,
+//         message: "Subscription Successful",
+//       });
+//     } catch (err) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Payment failed",
+//       });
+//     }
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 export const createSubscription = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
     const email = (req as any).user?.email;
-    const { planID, amount } = req.body;
+    const { planID, amount, userTimezone = "Asia/Kolkata" } = req.body; // Pass timezone from frontend if needed
 
-    const currDate = new Date();
+    const currDate = new Date(); // Exact global instant in time
 
     const [planDetails, subscriptions] = await Promise.all([
       Plan.findById(planID).lean(),
       Subscription.find({ userID }).sort({ endDate: -1 }).lean(),
     ]);
+
     if (!planDetails) {
       return res.status(404).json({
         success: false,
@@ -45,29 +162,30 @@ export const createSubscription = async (req: Request, res: Response) => {
     }
 
     const activeSubs = subscriptions.find((sub) => sub.status === "active");
-
     const lastSubscription = subscriptions.find((sub) =>
-      ["active", "scheduled", "expired"].includes(sub.status),
+      ["active", "scheduled"].includes(sub.status),
     );
 
-    let startDate = currDate;
+    let startDate: Date;
 
     if (lastSubscription && lastSubscription.status !== "expired") {
-      const currSubsEnd = new Date(lastSubscription.endDate);
-      startDate = new Date(currSubsEnd);
-      startDate.setDate(startDate.getUTCDate() + 1);
-      startDate.setUTCHours(0, 0, 0, 0);
+      // Scheduled plan starts immediately after the active plan's millisecond
+      startDate = new Date(new Date(lastSubscription.endDate).getTime() + 1);
+    } else {
+      // Immediate activation
+      startDate = currDate;
     }
 
     const totalMonths = Number(planDetails.no_of_months);
+
+    // Calculate end of the month in UTC
+    // Date.UTC(year, month + totalMonths + 1, 0, 23, 59, 59, 999) calculates
+    // the last millisecond of the requested month in UTC
+    const endYear = startDate.getUTCFullYear();
+    const endMonth = startDate.getUTCMonth();
+
     const endDate = new Date(
-      startDate.getFullYear(),
-      startDate.getMonth() + totalMonths,
-      0,
-      23,
-      59,
-      59,
-      999,
+      Date.UTC(endYear, endMonth + totalMonths + 1, 0, 23, 59, 59, 999),
     );
 
     if (planDetails.planType === "free") {
@@ -75,7 +193,7 @@ export const createSubscription = async (req: Request, res: Response) => {
         userID,
         planID,
         planType: "free",
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: userTimezone,
         startDate,
         endDate,
         status: activeSubs ? "scheduled" : "active",
@@ -84,7 +202,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
       await sendEmail({
         to: email,
-        subject: "Free Subscription Successfull",
+        subject: "Free Subscription Successful",
         html: freeSubsSuccTemplate(email, startDate, endDate),
       });
 
@@ -96,11 +214,12 @@ export const createSubscription = async (req: Request, res: Response) => {
 
     try {
       await handlePayment(amount);
+
       await Subscription.create({
         userID,
         planID,
         planType: "paid",
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: userTimezone,
         startDate,
         endDate,
         status: activeSubs ? "scheduled" : "active",
@@ -109,7 +228,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
       await sendEmail({
         to: email,
-        subject: "Subscription Successfull",
+        subject: "Subscription Successful",
         html: subsSuccTemplate(email, startDate, endDate),
       });
 
@@ -234,29 +353,27 @@ export const getAllSubscription = async (req: Request, res: Response) => {
           success: false,
           message: "No subscription found",
         });
-      }
-      else return res.status(200).json({
-        success: true,
-        subscriptions: subs,
-      });
-    }
-
-    else {
+      } else
+        return res.status(200).json({
+          success: true,
+          subscriptions: subs,
+        });
+    } else {
       const subs = await Subscription.find({
-        userID, status: type
+        userID,
+        status: type,
       }).select("planType startDate endDate status");
       if (!subs) {
         return res.status(404).json({
           success: false,
           message: "No subscription found",
         });
-      }
-      else return res.status(200).json({
-        success: true,
-        subscriptions: subs,
-      });
+      } else
+        return res.status(200).json({
+          success: true,
+          subscriptions: subs,
+        });
     }
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({
