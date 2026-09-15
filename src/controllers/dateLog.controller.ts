@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { MonthModel } from "../models/dashboardModel";
 import {
+  DailyTargetsModel,
   DateLogModel,
   MonthlyTargetsModel,
   MonthNoteModel,
@@ -104,6 +105,7 @@ export const getDateLog = async (req: Request, res: Response) => {
   }
 };
 
+// Task
 export const addTask = async (req: Request, res: Response) => {
   const session = await mongoose.startSession();
 
@@ -621,6 +623,7 @@ function calculateProgress(
   };
 }
 
+// Monthly Note
 export const getMonthlyNote = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -707,6 +710,7 @@ export const updateMonthlyNote = async (req: Request, res: Response) => {
   }
 };
 
+// Monthly Targets
 export const getMonthlyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -950,6 +954,7 @@ export const markMonthlyTargets = async (req: Request, res: Response) => {
   }
 };
 
+// Weekly Targets
 export const getWeeklyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -1399,6 +1404,7 @@ export const markWeeklyTargets = async (req: Request, res: Response) => {
   }
 };
 
+// Reset
 export const resetDatelog = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -1664,5 +1670,491 @@ export const updateTaskList = async (req: Request, res: Response) => {
     });
   } finally {
     await session.endSession();
+  }
+};
+
+// Daily Targets
+export const getDailyTargets = async (req: Request, res: Response) => {
+  try {
+    const monthDashID = req.query.monthDashID as string;
+    const dateNo = Number(req.query.dateNo);
+
+    if (!monthDashID || !dateNo) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID & date no. are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (dateNo < 1 || dateNo > 31) {
+      return res.status(400).json({
+        success: false,
+        message: "Date no. must be between 1 and 31",
+      });
+    }
+
+    const targets = await DailyTargetsModel.findOne({
+      monthDashID,
+      dateNo,
+    }).lean();
+
+    return res.status(200).json({
+      success: true,
+      target: targets,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const addDailyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const monthDashID = req.query.monthDashID as string;
+    const dateNo = Number(req.query.dateNo);
+
+    const { target } = req.body;
+
+    // validations
+    if (!monthDashID || !dateNo || !target) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID, date no. & target are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (dateNo < 1 || dateNo > 31) {
+      return res.status(400).json({
+        success: false,
+        message: "Date no. must be between 1 and 31",
+      });
+    }
+
+    if (typeof target !== "string" || !target.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Target must be a valid string",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    // add target
+    const updatedTarget = await DailyTargetsModel.findOneAndUpdate(
+      {
+        monthDashID,
+        dateNo,
+      },
+      {
+        $push: {
+          targets: {
+            value: target.trim(),
+          },
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+
+    return res.status(200).json({
+      success: true,
+      target: updatedTarget,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const removeDailyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const monthDashID = req.query.monthDashID as string;
+    const dateNo = Number(req.query.dateNo);
+    const targetID = req.query.targetID as string;
+
+    if (!monthDashID || !dateNo || !targetID) {
+      return res.status(400).json({
+        success: false,
+        message: "Month Dashboard ID, date no. & target ID are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(targetID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Target ID",
+      });
+    }
+
+    if (dateNo < 1 || dateNo > 31) {
+      return res.status(400).json({
+        success: false,
+        message: "Date no. must be between 1 and 5",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const updatedDoc = await DailyTargetsModel.findOneAndUpdate(
+      {
+        monthDashID,
+        dateNo,
+      },
+      {
+        $pull: {
+          targets: {
+            _id: targetID,
+          },
+        },
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (!updatedDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "Daily targets not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Removed target successfully",
+      target: updatedDoc,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const updateDailyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const monthDashID = req.query.monthDashID as string;
+    const dateNo = Number(req.query.dateNo);
+    const targetID = req.query.targetID as string;
+
+    const { target } = req.body;
+
+    // validations
+    if (!monthDashID || !dateNo || !targetID || !target) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID, date no., targetID and target are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(targetID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Target ID",
+      });
+    }
+
+    if (dateNo < 1 || dateNo > 31) {
+      return res.status(400).json({
+        success: false,
+        message: "Date no. must be between 1 and 31",
+      });
+    }
+
+    if (typeof target !== "string" || !target.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Target must be a valid string",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const updated = await DailyTargetsModel.findOneAndUpdate(
+      {
+        monthDashID,
+        dateNo,
+        "targets._id": targetID,
+      },
+      {
+        $set: {
+          "targets.$.value": target.trim(),
+        },
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Target not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      target: updated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+export const markDailyTargets = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const monthDashID = req.query.monthDashID as string;
+    const dateNo = Number(req.query.dateNo);
+    const targetID = req.query.targetID as string;
+
+    const { mark = false } = req.body;
+
+    // validations
+    if (typeof mark !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "Mark must be boolean",
+      });
+    }
+
+    if (!monthDashID || !dateNo || !targetID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID, date no. and targetID are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(targetID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Target ID",
+      });
+    }
+
+    if (dateNo < 1 || dateNo > 31) {
+      return res.status(400).json({
+        success: false,
+        message: "Date no. must be between 1 and 31",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const updated = await DailyTargetsModel.findOneAndUpdate(
+      {
+        monthDashID,
+        dateNo,
+        "targets._id": targetID,
+      },
+      {
+        $set: {
+          "targets.$.completed": mark,
+        },
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Target not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      target: updated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+const getTargetSummary = (targets: { completed: boolean }[]) => {
+  const total = targets.length;
+
+  const completed = targets.filter((target) => target.completed).length;
+
+  return {
+    total,
+    completed,
+    remaining: total - completed,
+  };
+};
+export const getAllTargetsCount = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const monthDashID = req.query.monthDashID as string;
+
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID, date no. and week no. are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(monthDashID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Month Dashboard ID",
+      });
+    }
+
+    // ownership check
+    const dashboardExists = await MonthModel.exists({
+      _id: monthDashID,
+      userID,
+    });
+
+    if (!dashboardExists) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    const [monthly, weekly, daily] = await Promise.all([
+      MonthlyTargetsModel.findOne({ monthDashID }).lean(),
+      WeeklyTargetsModel.find({ monthDashID }).sort({ week: 1 }).lean(),
+      DailyTargetsModel.find({ monthDashID }).sort({ dateNo: 1 }).lean(),
+    ]);
+
+    const monthlySummary = getTargetSummary(monthly?.targets ?? []);
+
+    const weeklySummary = weekly.map((item) => ({
+      week: item.week,
+      ...getTargetSummary(item.targets),
+    }));
+
+    const dailySummary = daily.map((item) => ({
+      dateNo: item.dateNo,
+      ...getTargetSummary(item.targets),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      monthlySummary,
+      weeklySummary,
+      dailySummary,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
   }
 };

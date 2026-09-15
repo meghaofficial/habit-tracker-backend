@@ -59,6 +59,12 @@ export interface WeeklyTargetsI {
   targets: { _id: string; value: string; completed: boolean }[];
 }
 
+export interface DailyTargetsI {
+  monthDashID: string;
+  dateNo: number;
+  targets: { _id: string; value: string; completed: boolean }[];
+}
+
 export interface IOtp {
   email: string;
   username?: string;
@@ -80,14 +86,14 @@ export interface CalandarI {
 }
 
 export interface HistoryTaskListI {
-    taskID: string;
-    taskName: string;
-    progress: number | string;
-    dates: {
-      dateNo: number;
-      taskMarked: boolean;
-    }[]
-  }
+  taskID: string;
+  taskName: string;
+  progress: number | string;
+  dates: {
+    dateNo: number;
+    taskMarked: boolean;
+  }[];
+}
 export interface HistoryI {
   userID: string;
   monthDashID: string;
@@ -99,7 +105,7 @@ export interface HistoryI {
   totalHabits?: number;
   monthlyTargets: string[];
   monthlyNote: string;
-  taskList: HistoryTaskListI[],
+  taskList: HistoryTaskListI[];
   missedTasksByDay: {
     dateNo: number;
     progress: number | string;
