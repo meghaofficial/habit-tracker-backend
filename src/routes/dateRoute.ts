@@ -30,6 +30,7 @@ import {
   updateDailyTargets,
   markDailyTargets,
   getAllTargetsCount,
+  reorderTask,
 } from "../controllers/dateLog.controller";
 
 const router = Router();
@@ -69,7 +70,6 @@ router
 
 router.patch("/reset-date-log", isAuthorized, canAccessDashboard, resetDatelog);
 
-// New routes
 router.get("/last-month", isAuthorized, canAccessDashboard, checkForLastMonth);
 router
   .route("/task-list")
@@ -90,5 +90,7 @@ router.get(
   canAccessDashboard,
   getAllTargetsCount,
 );
+
+router.patch("/reorder-task", isAuthorized, canAccessDashboard, reorderTask);
 
 export const dateLogRoute = router;

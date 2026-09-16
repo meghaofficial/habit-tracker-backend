@@ -146,16 +146,33 @@ export const addTask = async (req: Request, res: Response) => {
         throw new Error("Maximum 10 tasks allowed");
       }
 
+      const lastTask = tasks[tasks.length - 1];
+
       // Create task
       const task = await TaskModel.create(
         [
           {
             monthDashID,
             taskName: taskName.trim(),
+            prevId: lastTask?._id ?? null,
+            nextId: null,
           },
         ],
         { session },
       );
+
+      // Connect previous last task -> new task
+      if (lastTask) {
+        await TaskModel.updateOne(
+          { _id: lastTask._id },
+          {
+            $set: {
+              nextId: task[0]._id,
+            },
+          },
+          { session },
+        );
+      }
 
       const totalTasks = tasks.length + 1;
 
@@ -215,8 +232,6 @@ export const addTask = async (req: Request, res: Response) => {
     //   tasks: allTasks,
     //   progress,
     // });
-
-    // return res.status(201).json({});
   } catch (error) {
     console.error(error);
 
@@ -230,6 +245,8 @@ export const addTask = async (req: Request, res: Response) => {
 };
 
 export const getTask = async (req: Request, res: Response) => {
+  const session = await mongoose.startSession();
+
   try {
     const userID = (req as any).user?.id;
 
@@ -242,21 +259,294 @@ export const getTask = async (req: Request, res: Response) => {
 
     const monthDashID = req.query.monthDashID as string;
 
+    if (!monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "monthDashID is required",
+      });
+    }
+
     const allTasks = await TaskModel.find({
       monthDashID,
-    });
+    }).session(session);
 
-    return res.status(201).json({
+    if (allTasks.length === 0) {
+      return res.status(200).json({
+        success: true,
+        tasks: [],
+      });
+    }
+
+    const taskMap = new Map(
+      allTasks.map((task) => [task._id.toString(), task]),
+    );
+
+    /*
+     * -------------------------------------------------------
+     * 1. Check whether this is an old/uninitialized dataset
+     * -------------------------------------------------------
+     */
+
+    const hasAnyMissingLinks = allTasks.some(
+      (task) => task.prevId === undefined || task.nextId === undefined,
+    );
+
+    /*
+     * If links are completely missing, initialize them
+     * using the current MongoDB array order.
+     */
+    if (hasAnyMissingLinks) {
+      const operations = allTasks.map((task, index) => ({
+        updateOne: {
+          filter: {
+            _id: task._id,
+            monthDashID,
+          },
+          update: {
+            $set: {
+              prevId: index === 0 ? null : allTasks[index - 1]._id,
+
+              nextId:
+                index === allTasks.length - 1 ? null : allTasks[index + 1]._id,
+            },
+          },
+        },
+      }));
+
+      await TaskModel.bulkWrite(operations, {
+        session,
+      });
+
+      allTasks.forEach((task, index) => {
+        task.prevId = index === 0 ? null : allTasks[index - 1]._id;
+
+        task.nextId =
+          index === allTasks.length - 1 ? null : allTasks[index + 1]._id;
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * 2. Validate the linked list
+     * -------------------------------------------------------
+     */
+
+    const firstTasks = allTasks.filter((task) => task.prevId === null);
+
+    let isValid = firstTasks.length === 1;
+
+    let currentTask = firstTasks[0];
+
+    const visited = new Set<string>();
+
+    while (isValid && currentTask) {
+      const currentId = currentTask._id.toString();
+
+      // Cycle
+      if (visited.has(currentId)) {
+        isValid = false;
+        break;
+      }
+
+      visited.add(currentId);
+
+      /*
+       * Last task
+       */
+      if (currentTask.nextId === null) {
+        break;
+      }
+
+      const nextTask = taskMap.get(currentTask.nextId.toString());
+
+      /*
+       * nextId points to a task that doesn't exist
+       */
+      if (!nextTask) {
+        isValid = false;
+        break;
+      }
+
+      /*
+       * next task must point back to current task
+       */
+      if (nextTask.prevId?.toString() !== currentTask._id.toString()) {
+        isValid = false;
+        break;
+      }
+
+      currentTask = nextTask;
+    }
+
+    /*
+     * Every task must have been visited.
+     */
+    if (visited.size !== allTasks.length) {
+      isValid = false;
+    }
+
+    /*
+     * -------------------------------------------------------
+     * 3. If invalid, repair the linked list
+     * -------------------------------------------------------
+     */
+
+    if (!isValid) {
+      /*
+       * IMPORTANT:
+       *
+       * Do NOT use allTasks order here automatically.
+       *
+       * Try to reconstruct the order from the existing
+       * prevId / nextId relationships first.
+       */
+
+      const orderedIds: string[] = [];
+      const repairVisited = new Set<string>();
+
+      /*
+       * Find possible starting node.
+       */
+      let startTask = allTasks.find((task) => task.prevId === null);
+
+      /*
+       * If exactly one starting point exists, follow
+       * whatever valid next links we can.
+       */
+      if (startTask) {
+        let task: typeof startTask | undefined = startTask;
+
+        while (task) {
+          const id = task._id.toString();
+
+          if (repairVisited.has(id)) {
+            break;
+          }
+
+          repairVisited.add(id);
+          orderedIds.push(id);
+
+          if (!task.nextId) {
+            break;
+          }
+
+          task = taskMap.get(task.nextId.toString());
+        }
+      }
+
+      /*
+       * Add any tasks that were not reachable.
+       *
+       * This is only for repairing genuinely corrupted data.
+       */
+      for (const task of allTasks) {
+        const id = task._id.toString();
+
+        if (!repairVisited.has(id)) {
+          orderedIds.push(id);
+          repairVisited.add(id);
+        }
+      }
+
+      /*
+       * Rebuild links according to the recovered order.
+       */
+      const operations = orderedIds.map((id, index) => ({
+        updateOne: {
+          filter: {
+            _id: new mongoose.Types.ObjectId(id),
+            monthDashID: new mongoose.Types.ObjectId(monthDashID),
+          },
+          update: {
+            $set: {
+              prevId:
+                index === 0
+                  ? null
+                  : new mongoose.Types.ObjectId(orderedIds[index - 1]),
+
+              nextId:
+                index === orderedIds.length - 1
+                  ? null
+                  : new mongoose.Types.ObjectId(orderedIds[index + 1]),
+            },
+          },
+        },
+      }));
+
+      await TaskModel.bulkWrite(operations, {
+        session,
+      });
+
+      /*
+       * Refresh in-memory values.
+       */
+      const repairedMap = new Map(
+        allTasks.map((task) => [task._id.toString(), task]),
+      );
+
+      orderedIds.forEach((id, index) => {
+        const task = repairedMap.get(id);
+
+        if (!task) return;
+
+        task.prevId =
+          index === 0
+            ? null
+            : new mongoose.Types.ObjectId(orderedIds[index - 1]);
+
+        task.nextId =
+          index === orderedIds.length - 1
+            ? null
+            : new mongoose.Types.ObjectId(orderedIds[index + 1]);
+      });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * 4. Finally traverse the linked list
+     * -------------------------------------------------------
+     */
+
+    const orderedTasks: typeof allTasks = [];
+
+    let task = allTasks.find((task) => task.prevId === null);
+
+    const finalVisited = new Set<string>();
+
+    while (task) {
+      const id = task._id.toString();
+
+      if (finalVisited.has(id)) {
+        throw new Error("Invalid task linked list");
+      }
+
+      finalVisited.add(id);
+      orderedTasks.push(task);
+
+      if (!task.nextId) {
+        break;
+      }
+
+      task = taskMap.get(task.nextId.toString());
+    }
+
+    if (orderedTasks.length !== allTasks.length) {
+      throw new Error("Invalid task linked list");
+    }
+
+    return res.status(200).json({
       success: true,
-      tasks: allTasks,
+      tasks: orderedTasks,
     });
   } catch (error) {
     console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong",
+      message: error instanceof Error ? error.message : "Something went wrong",
     });
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -511,14 +801,6 @@ export const removeTask = async (req: Request, res: Response) => {
 export const updateTask = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
-
-    if (!userID) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
-
     const taskID = req.query.taskID as string;
     const { taskName } = req.body;
 
@@ -562,6 +844,154 @@ export const updateTask = async (req: Request, res: Response) => {
       success: false,
       message: "Something went wrong",
     });
+  }
+};
+
+export const reorderTask = async (req: Request, res: Response) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const userID = (req as any).user?.id;
+    const monthDashID = req.query.monthDashID as string;
+
+    const { currId, prevId, nextId } = req.body;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (!currId || !monthDashID) {
+      return res.status(400).json({
+        success: false,
+        message: "Task ID and monthDashID are required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(currId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Task ID",
+      });
+    }
+
+    if (
+      prevId !== null &&
+      prevId !== undefined &&
+      !mongoose.Types.ObjectId.isValid(prevId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid prevId",
+      });
+    }
+
+    if (
+      nextId !== null &&
+      nextId !== undefined &&
+      !mongoose.Types.ObjectId.isValid(nextId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid nextId",
+      });
+    }
+
+    await session.withTransaction(async () => {
+      // Make sure the task belongs to the user's dashboard
+      const currentTask = await TaskModel.findOne({
+        _id: currId,
+        monthDashID,
+      }).session(session);
+
+      if (!currentTask) {
+        throw new Error("Task not found");
+      }
+
+      // Prevent invalid self-links
+      if (prevId === currId || nextId === currId) {
+        throw new Error("Task cannot point to itself");
+      }
+
+      // Update previous task
+      if (prevId) {
+        const previousTask = await TaskModel.findOneAndUpdate(
+          {
+            _id: prevId,
+            monthDashID,
+          },
+          {
+            $set: {
+              nextId: currId,
+            },
+          },
+          {
+            session,
+            new: true,
+          },
+        );
+
+        if (!previousTask) {
+          throw new Error("Previous task not found");
+        }
+      }
+
+      // Update next task
+      if (nextId) {
+        const nextTask = await TaskModel.findOneAndUpdate(
+          {
+            _id: nextId,
+            monthDashID,
+          },
+          {
+            $set: {
+              prevId: currId,
+            },
+          },
+          {
+            session,
+            new: true,
+          },
+        );
+
+        if (!nextTask) {
+          throw new Error("Next task not found");
+        }
+      }
+
+      // Update current task
+      await TaskModel.updateOne(
+        {
+          _id: currId,
+          monthDashID,
+        },
+        {
+          $set: {
+            prevId: prevId ?? null,
+            nextId: nextId ?? null,
+          },
+        },
+        {
+          session,
+        },
+      );
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Task reordered successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Something went wrong",
+    });
+  } finally {
+    await session.endSession();
   }
 };
 

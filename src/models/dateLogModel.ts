@@ -29,6 +29,16 @@ const taskSchema = new mongoose.Schema(
       type: String,
       default: "0",
     },
+    prevId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Task",
+      default: null,
+    },
+    nextId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Task",
+      default: null,
+    },
   },
   { timestamps: true },
 );

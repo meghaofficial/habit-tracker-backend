@@ -1,3 +1,5 @@
+import { Types } from "mongoose";
+
 export interface PlanI {
   planName: string; // monthly, yearly, quarterly, half-yearly
   planType: string; // free, paid
@@ -33,6 +35,8 @@ export interface TaskI {
   taskName: string;
   count: number;
   progress: string;
+  prevId: Types.ObjectId | null;
+  nextId: Types.ObjectId | null;
 }
 
 export interface DateLogI {

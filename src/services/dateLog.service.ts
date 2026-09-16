@@ -2,20 +2,31 @@ import { findProgress } from "../helper/utils";
 import { MonthModel } from "../models/dashboardModel";
 import { DateLogModel, TaskModel } from "../models/dateLogModel";
 
-export const updateDateLog = async ({ session, monthDashID, taskID, marked, normalizedUtcDate, totalTasks }: any) => {
- const filter = { monthDashID, fullDate: normalizedUtcDate, };
+export const updateDateLog = async ({
+  session,
+  monthDashID,
+  taskID,
+  marked,
+  normalizedUtcDate,
+  totalTasks,
+}: any) => {
+  const filter = { monthDashID, fullDate: normalizedUtcDate };
 
-  const update = marked ? 
-      {
-        $addToSet: { tasks: taskID, },
-        $setOnInsert: { monthDashID, fullDate: normalizedUtcDate, },
-      } : 
-      {
-        $pull: { tasks: taskID, },
-        $setOnInsert: { monthDashID, fullDate: normalizedUtcDate, },
+  const update = marked
+    ? {
+        $addToSet: { tasks: taskID },
+        $setOnInsert: { monthDashID, fullDate: normalizedUtcDate },
+      }
+    : {
+        $pull: { tasks: taskID },
+        $setOnInsert: { monthDashID, fullDate: normalizedUtcDate },
       };
 
-  const updated = await DateLogModel.findOneAndUpdate(filter, update, { new: true, upsert: true, session, });
+  const updated = await DateLogModel.findOneAndUpdate(filter, update, {
+    new: true,
+    upsert: true,
+    session,
+  });
 
   if (!updated) {
     throw new Error("DateLog update failed");
@@ -32,8 +43,13 @@ export const updateDateLog = async ({ session, monthDashID, taskID, marked, norm
   };
 };
 
-export const updateTaskProgress = async ({ session, monthDashID, taskID, daysInMonth, dateLogs }: any) => {
-
+export const updateTaskProgress = async ({
+  session,
+  monthDashID,
+  taskID,
+  daysInMonth,
+  dateLogs,
+}: any) => {
   let count = 0;
 
   for (const log of dateLogs) {
@@ -45,9 +61,9 @@ export const updateTaskProgress = async ({ session, monthDashID, taskID, daysInM
   const progress = findProgress(count, daysInMonth);
 
   await TaskModel.findOneAndUpdate(
-    { _id: taskID, monthDashID, },
-    { count, progress, },
-    { new: true, session, },
+    { _id: taskID, monthDashID },
+    { count, progress },
+    { new: true, session },
   );
 
   return {
@@ -56,18 +72,19 @@ export const updateTaskProgress = async ({ session, monthDashID, taskID, daysInM
   };
 };
 
-export const updateMonthProgress = async ({ session, monthDashID, overallTotal, dateLogs }: any) => {
-
+export const updateMonthProgress = async ({
+  session,
+  monthDashID,
+  overallTotal,
+  dateLogs,
+}: any) => {
   let overallCount = 0;
 
   for (const log of dateLogs) {
     overallCount += log.tasks.length;
   }
 
-  const progress = findProgress(
-    overallCount,
-    overallTotal
-  );
+  const progress = findProgress(overallCount, overallTotal);
 
   await MonthModel.findOneAndUpdate(
     {
@@ -79,7 +96,7 @@ export const updateMonthProgress = async ({ session, monthDashID, overallTotal, 
     },
     {
       session,
-    }
+    },
   );
 
   return {
@@ -88,30 +105,82 @@ export const updateMonthProgress = async ({ session, monthDashID, overallTotal, 
   };
 };
 
-export const deleteTask = async ({ session, taskID, monthDashID, }: any) => {
-  const deletedTask = await TaskModel.findOneAndDelete( { _id: taskID, monthDashID, }, { session, } );
+export const deleteTask = async ({ session, taskID, monthDashID }: any) => {
+  const deletedTask = await TaskModel.findOne({
+    _id: taskID,
+    monthDashID,
+  }).session(session);
 
   if (!deletedTask) {
     throw new Error("Task not found");
   }
 
-  const totalTasks = await TaskModel.countDocuments({ monthDashID, }).session(session);
+  const { prevId, nextId } = deletedTask;
 
-  return { deletedTask, totalTasks, };
+  // Connect previous task -> next task
+  if (prevId) {
+    await TaskModel.updateOne(
+      {
+        _id: prevId,
+        monthDashID,
+      },
+      {
+        $set: {
+          nextId: nextId ?? null,
+        },
+      },
+      { session },
+    );
+  }
+
+  // Connect next task -> previous task
+  if (nextId) {
+    await TaskModel.updateOne(
+      {
+        _id: nextId,
+        monthDashID,
+      },
+      {
+        $set: {
+          prevId: prevId ?? null,
+        },
+      },
+      { session },
+    );
+  }
+
+  // Now delete the task
+  await TaskModel.deleteOne(
+    {
+      _id: taskID,
+      monthDashID,
+    },
+    { session },
+  );
+
+  const totalTasks = await TaskModel.countDocuments({ monthDashID }).session(
+    session,
+  );
+
+  return { deletedTask, totalTasks };
 };
 
-export const updateDateLogsAfterTaskDelete = async ({ session, taskID, monthDashID, totalTasks, }: any)=> {
-
-  const dateLogs = await DateLogModel.find({ monthDashID, }).sort({ fullDate: 1 }).session(session);
+export const updateDateLogsAfterTaskDelete = async ({
+  session,
+  taskID,
+  monthDashID,
+  totalTasks,
+}: any) => {
+  const dateLogs = await DateLogModel.find({ monthDashID })
+    .sort({ fullDate: 1 })
+    .session(session);
 
   let overallCount = 0;
 
   const response: any[] = [];
 
   const bulkOps = dateLogs.map((log) => {
-    const tasks = log.tasks.filter(
-      id => id.toString() !== taskID
-    );
+    const tasks = log.tasks.filter((id) => id.toString() !== taskID);
     const count = tasks.length;
     const progress = totalTasks === 0 ? "0" : findProgress(count, totalTasks);
     overallCount += count;
@@ -123,31 +192,34 @@ export const updateDateLogsAfterTaskDelete = async ({ session, taskID, monthDash
 
     return {
       updateOne: {
-        filter: { _id: log._id, },
-        update: { $set: { tasks, count, progress, }, },
+        filter: { _id: log._id },
+        update: { $set: { tasks, count, progress } },
       },
     };
   });
 
   if (bulkOps.length) {
-    await DateLogModel.bulkWrite(
-      bulkOps,
-      { session }
-    );
+    await DateLogModel.bulkWrite(bulkOps, { session });
   }
 
-  return { overallCount, dateLogProgress: response, };
+  return { overallCount, dateLogProgress: response };
 };
 
-export const updateMonthAfterTaskDelete = async ({ session, monthDashID, totalTasks, totalDays, overallCount, }: any) => {
-
+export const updateMonthAfterTaskDelete = async ({
+  session,
+  monthDashID,
+  totalTasks,
+  totalDays,
+  overallCount,
+}: any) => {
   const overallTotal = totalTasks * totalDays;
-  const progress = overallTotal === 0 ? "0" : findProgress( overallCount, overallTotal );
+  const progress =
+    overallTotal === 0 ? "0" : findProgress(overallCount, overallTotal);
 
   await MonthModel.findByIdAndUpdate(
     monthDashID,
     { totalCount: overallCount, progress, totalTasks },
-    { session, }
+    { session },
   );
 
   return {
