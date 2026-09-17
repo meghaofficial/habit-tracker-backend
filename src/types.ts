@@ -35,6 +35,7 @@ export interface TaskI {
   taskName: string;
   count: number;
   progress: string;
+  position: number;
 }
 
 export interface DateLogI {

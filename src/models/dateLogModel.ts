@@ -29,6 +29,10 @@ const taskSchema = new mongoose.Schema(
       type: String,
       default: "0",
     },
+    position: {
+      type: Number,
+      required: true,
+    },
   },
   { timestamps: true },
 );
@@ -192,6 +196,8 @@ const dailyTargetSchema = new mongoose.Schema({
 dailyTargetSchema.index({ monthDashID: 1, dateNo: 1 }, { unique: true });
 
 export const TaskModel = mongoose.model<TaskI>("Task", taskSchema);
+
+taskSchema.index({ userId: 1, position: 1 });
 
 export const DateLogModel = mongoose.model<DateLogI>("DateLog", dateLogSchema);
 

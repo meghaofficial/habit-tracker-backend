@@ -152,6 +152,7 @@ export const addTask = async (req: Request, res: Response) => {
           {
             monthDashID,
             taskName: taskName.trim(),
+            position: tasks.length,
           },
         ],
         { session },
@@ -242,7 +243,26 @@ export const getTask = async (req: Request, res: Response) => {
 
     const allTasks = await TaskModel.find({
       monthDashID,
-    }).lean();
+    }).sort({ position: 1 });
+
+    const hasMissingPositions = allTasks.some(
+      (task) => task.position === undefined || task.position === null,
+    );
+
+    if (hasMissingPositions) {
+      const bulkOps = allTasks.map((task, index) => ({
+        updateOne: {
+          filter: { _id: task._id },
+          update: { $set: { position: index } },
+        },
+      }));
+
+      await TaskModel.bulkWrite(bulkOps);
+
+      allTasks.forEach((task, index) => {
+        task.position = index;
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -556,134 +576,35 @@ export const updateTask = async (req: Request, res: Response) => {
 };
 
 export const reorderTask = async (req: Request, res: Response) => {
-  // const session = await mongoose.startSession();
-  // try {
-  //   const userID = (req as any).user?.id;
-  //   const monthDashID = req.query.monthDashID as string;
-  //   const { currId, prevId, nextId } = req.body;
-  //   if (!userID) {
-  //     return res.status(401).json({
-  //       success: false,
-  //       message: "Unauthorized",
-  //     });
-  //   }
-  //   if (!currId || !monthDashID) {
-  //     return res.status(400).json({
-  //       success: false,
-  //       message: "Task ID and monthDashID are required",
-  //     });
-  //   }
-  //   if (!mongoose.Types.ObjectId.isValid(currId)) {
-  //     return res.status(400).json({
-  //       success: false,
-  //       message: "Invalid Task ID",
-  //     });
-  //   }
-  //   if (
-  //     prevId !== null &&
-  //     prevId !== undefined &&
-  //     !mongoose.Types.ObjectId.isValid(prevId)
-  //   ) {
-  //     return res.status(400).json({
-  //       success: false,
-  //       message: "Invalid prevId",
-  //     });
-  //   }
-  //   if (
-  //     nextId !== null &&
-  //     nextId !== undefined &&
-  //     !mongoose.Types.ObjectId.isValid(nextId)
-  //   ) {
-  //     return res.status(400).json({
-  //       success: false,
-  //       message: "Invalid nextId",
-  //     });
-  //   }
-  //   await session.withTransaction(async () => {
-  //     // Make sure the task belongs to the user's dashboard
-  //     const currentTask = await TaskModel.findOne({
-  //       _id: currId,
-  //       monthDashID,
-  //     }).session(session);
-  //     if (!currentTask) {
-  //       throw new Error("Task not found");
-  //     }
-  //     // Prevent invalid self-links
-  //     if (prevId === currId || nextId === currId) {
-  //       throw new Error("Task cannot point to itself");
-  //     }
-  //     // Update previous task
-  //     if (prevId) {
-  //       const previousTask = await TaskModel.findOneAndUpdate(
-  //         {
-  //           _id: prevId,
-  //           monthDashID,
-  //         },
-  //         {
-  //           $set: {
-  //             nextId: currId,
-  //           },
-  //         },
-  //         {
-  //           session,
-  //           new: true,
-  //         },
-  //       );
-  //       if (!previousTask) {
-  //         throw new Error("Previous task not found");
-  //       }
-  //     }
-  //     // Update next task
-  //     if (nextId) {
-  //       const nextTask = await TaskModel.findOneAndUpdate(
-  //         {
-  //           _id: nextId,
-  //           monthDashID,
-  //         },
-  //         {
-  //           $set: {
-  //             prevId: currId,
-  //           },
-  //         },
-  //         {
-  //           session,
-  //           new: true,
-  //         },
-  //       );
-  //       if (!nextTask) {
-  //         throw new Error("Next task not found");
-  //       }
-  //     }
-  //     // Update current task
-  //     await TaskModel.updateOne(
-  //       {
-  //         _id: currId,
-  //         monthDashID,
-  //       },
-  //       {
-  //         $set: {
-  //           prevId: prevId ?? null,
-  //           nextId: nextId ?? null,
-  //         },
-  //       },
-  //       {
-  //         session,
-  //       },
-  //     );
-  //   });
-  //   return res.status(200).json({
-  //     success: true,
-  //     message: "Task reordered successfully",
-  //   });
-  // } catch (error) {
-  //   console.error(error);
-  //   return res.status(500).json({
-  //     success: false,
-  //     message: error instanceof Error ? error.message : "Something went wrong",
-  //   });
-  // } finally {
-  //   await session.endSession();
-  // }
+  try {
+    const monthDashID = req.query.monthDashID as string;
+    const { orderedTaskIds } = req.body; // Expecting an array of IDs: ["id_3", "id_1", "id_2"]
+
+    if (!Array.isArray(orderedTaskIds)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid payload" });
+    }
+
+    const bulkOps = orderedTaskIds.map((id, index) => ({
+      updateOne: {
+        filter: { _id: id, monthDashID },
+        update: { $set: { position: index } },
+      },
+    }));
+
+    await TaskModel.bulkWrite(bulkOps);
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Reordered successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
 };
 
 function calculateProgress(

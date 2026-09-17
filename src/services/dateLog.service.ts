@@ -115,9 +115,22 @@ export const deleteTask = async ({ session, taskID, monthDashID }: any) => {
     throw new Error("Task not found");
   }
 
-  const totalTasks = await TaskModel.countDocuments({ monthDashID }).session(
-    session,
-  );
+  const updatedTasks = await TaskModel.find({ monthDashID })
+    .sort({ position: 1 })
+    .session(session);
+
+  const bulkOps = updatedTasks.map((t, index) => ({
+    updateOne: {
+      filter: { _id: t._id },
+      update: { $set: { position: index } },
+    },
+  }));
+
+  if (bulkOps.length > 0) {
+    await TaskModel.bulkWrite(bulkOps);
+  }
+
+  const totalTasks = updatedTasks.length;
 
   return { deletedTask, totalTasks };
 };
