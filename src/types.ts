@@ -35,8 +35,6 @@ export interface TaskI {
   taskName: string;
   count: number;
   progress: string;
-  prevId: Types.ObjectId | null;
-  nextId: Types.ObjectId | null;
 }
 
 export interface DateLogI {

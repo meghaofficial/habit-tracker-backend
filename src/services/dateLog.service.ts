@@ -106,57 +106,14 @@ export const updateMonthProgress = async ({
 };
 
 export const deleteTask = async ({ session, taskID, monthDashID }: any) => {
-  const deletedTask = await TaskModel.findOne({
-    _id: taskID,
-    monthDashID,
-  }).session(session);
+  const deletedTask = await TaskModel.findOneAndDelete(
+    { _id: taskID, monthDashID },
+    { session },
+  );
 
   if (!deletedTask) {
     throw new Error("Task not found");
   }
-
-  const { prevId, nextId } = deletedTask;
-
-  // Connect previous task -> next task
-  if (prevId) {
-    await TaskModel.updateOne(
-      {
-        _id: prevId,
-        monthDashID,
-      },
-      {
-        $set: {
-          nextId: nextId ?? null,
-        },
-      },
-      { session },
-    );
-  }
-
-  // Connect next task -> previous task
-  if (nextId) {
-    await TaskModel.updateOne(
-      {
-        _id: nextId,
-        monthDashID,
-      },
-      {
-        $set: {
-          prevId: prevId ?? null,
-        },
-      },
-      { session },
-    );
-  }
-
-  // Now delete the task
-  await TaskModel.deleteOne(
-    {
-      _id: taskID,
-      monthDashID,
-    },
-    { session },
-  );
 
   const totalTasks = await TaskModel.countDocuments({ monthDashID }).session(
     session,
