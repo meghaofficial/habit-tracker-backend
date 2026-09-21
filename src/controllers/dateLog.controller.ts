@@ -113,6 +113,7 @@ export const addTask = async (req: Request, res: Response) => {
     const userID = (req as any).user?.id;
     const monthDashID = req.query.monthDashID as string;
     const { taskName } = req.body;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!monthDashID) {
       return res.status(400).json({
@@ -205,17 +206,17 @@ export const addTask = async (req: Request, res: Response) => {
       };
     });
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+
+    senderSocket?.to(userID).emit("add-task", response);
+
+    // io.to(userID).emit("add-task", response);
+
     return res.status(201).json({
       success: true,
       ...response,
     });
-
-    // const io = getIO();
-
-    // io.to(userID).emit("add-task", {
-    //   tasks: allTasks,
-    //   progress,
-    // });
   } catch (error) {
     console.error(error);
 
@@ -328,6 +329,14 @@ export const markTask = async (req: Request, res: Response) => {
         success: false,
         message: "Access denied",
       });
+    }
+
+    const specificTask = tasks.find((t) => t._id.toString() === taskID);
+
+    if (!specificTask) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Task not found" });
     }
 
     const totalTasks = tasks.length;
