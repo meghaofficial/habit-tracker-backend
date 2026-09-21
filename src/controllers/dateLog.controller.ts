@@ -211,8 +211,6 @@ export const addTask = async (req: Request, res: Response) => {
 
     senderSocket?.to(userID).emit("add-task", response);
 
-    // io.to(userID).emit("add-task", response);
-
     return res.status(201).json({
       success: true,
       ...response,
@@ -440,6 +438,7 @@ export const removeTask = async (req: Request, res: Response) => {
     const userID = (req as any).user?.id;
     const taskID = req.query.taskID as string;
     const monthDashID = req.query.monthDashID as string;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -511,19 +510,15 @@ export const removeTask = async (req: Request, res: Response) => {
       };
     });
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+
+    senderSocket?.to(userID).emit("remove-task", response);
+
     return res.status(200).json({
       success: true,
       ...response,
     });
-
-    // const io = getIO();
-
-    // io.to(userID).emit("remove-task", {
-    //   tasks: remainingTasks,
-    //   progress,
-    // });
-
-    // return res.status(200).json({});
   } catch (error) {
     console.error(error);
     return res.status(500).json({
