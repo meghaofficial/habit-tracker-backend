@@ -208,7 +208,6 @@ export const addTask = async (req: Request, res: Response) => {
 
     const io = getIO();
     const senderSocket = io.sockets.sockets.get(socketID);
-
     senderSocket?.to(userID).emit("add-task", response);
 
     return res.status(201).json({
@@ -805,6 +804,7 @@ export const getMonthlyTargets = async (req: Request, res: Response) => {
 export const addMonthlyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -831,10 +831,8 @@ export const addMonthlyTargets = async (req: Request, res: Response) => {
     );
 
     const io = getIO();
-
-    io.to(userID).emit("add-monthly-target", {
-      target: newTarget,
-    });
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("add-monthly-target", newTarget);
 
     return res.status(200).json({
       success: true,
@@ -853,6 +851,7 @@ export const addMonthlyTargets = async (req: Request, res: Response) => {
 export const removeMonthlyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -878,10 +877,8 @@ export const removeMonthlyTargets = async (req: Request, res: Response) => {
     );
 
     const io = getIO();
-
-    io.to(userID).emit("remove-monthly-target", {
-      target: updated,
-    });
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("remove-monthly-target");
 
     return res.status(200).json({});
   } catch (error) {
@@ -897,6 +894,7 @@ export const removeMonthlyTargets = async (req: Request, res: Response) => {
 export const updateMonthlyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -930,6 +928,10 @@ export const updateMonthlyTargets = async (req: Request, res: Response) => {
       });
     }
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("update-monthly-target", updated);
+
     return res.status(200).json({
       success: true,
       target: updated,
@@ -947,6 +949,7 @@ export const updateMonthlyTargets = async (req: Request, res: Response) => {
 export const markMonthlyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -988,10 +991,8 @@ export const markMonthlyTargets = async (req: Request, res: Response) => {
     }
 
     const io = getIO();
-
-    io.to(userID).emit("mark-monthly-target", {
-      target: updated,
-    });
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("mark-monthly-target", updated);
 
     return res.status(200).json({
       success: true,
@@ -1065,6 +1066,7 @@ export const getWeeklyTargets = async (req: Request, res: Response) => {
 export const addWeeklyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -1141,6 +1143,10 @@ export const addWeeklyTargets = async (req: Request, res: Response) => {
       },
     );
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("add-weekly-target", updatedTarget);
+
     return res.status(200).json({
       success: true,
       target: updatedTarget,
@@ -1158,6 +1164,7 @@ export const addWeeklyTargets = async (req: Request, res: Response) => {
 export const removeWeeklyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -1235,6 +1242,10 @@ export const removeWeeklyTargets = async (req: Request, res: Response) => {
       });
     }
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("remove-weekly-target", updatedDoc);
+
     return res.status(200).json({
       success: true,
       message: "Removed target successfully",
@@ -1253,6 +1264,7 @@ export const removeWeeklyTargets = async (req: Request, res: Response) => {
 export const updateWeeklyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -1340,6 +1352,10 @@ export const updateWeeklyTargets = async (req: Request, res: Response) => {
       });
     }
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("update-weekly-target", updated);
+
     return res.status(200).json({
       success: true,
       target: updated,
@@ -1357,6 +1373,7 @@ export const updateWeeklyTargets = async (req: Request, res: Response) => {
 export const markWeeklyTargets = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -1443,6 +1460,10 @@ export const markWeeklyTargets = async (req: Request, res: Response) => {
       });
     }
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("mark-weekly-target", updated);
+
     return res.status(200).json({
       success: true,
       target: updated,
@@ -1461,6 +1482,7 @@ export const markWeeklyTargets = async (req: Request, res: Response) => {
 export const resetDatelog = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!userID) {
       return res.status(401).json({
@@ -1614,6 +1636,7 @@ export const updateTaskList = async (req: Request, res: Response) => {
     const userID = (req as any).user?.id;
     const monthDashID = req.query.monthDashID as string;
     const taskList: TaskI[] = req.body;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!monthDashID) {
       return res.status(400).json({
@@ -1777,7 +1800,7 @@ export const addDailyTargets = async (req: Request, res: Response) => {
     const userID = (req as any).user?.id;
     const monthDashID = req.query.monthDashID as string;
     const dateNo = Number(req.query.dateNo);
-
+    const socketID = req.headers["x-socket-id"] as string;
     const { target } = req.body;
 
     // validations
@@ -1843,6 +1866,10 @@ export const addDailyTargets = async (req: Request, res: Response) => {
       },
     );
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("add-daily-target", updatedTarget);
+
     return res.status(200).json({
       success: true,
       target: updatedTarget,
@@ -1863,6 +1890,7 @@ export const removeDailyTargets = async (req: Request, res: Response) => {
     const monthDashID = req.query.monthDashID as string;
     const dateNo = Number(req.query.dateNo);
     const targetID = req.query.targetID as string;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!monthDashID || !dateNo || !targetID) {
       return res.status(400).json({
@@ -1929,6 +1957,10 @@ export const removeDailyTargets = async (req: Request, res: Response) => {
       });
     }
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("remove-daily-target", updatedDoc);
+
     return res.status(200).json({
       success: true,
       message: "Removed target successfully",
@@ -1950,8 +1982,8 @@ export const updateDailyTargets = async (req: Request, res: Response) => {
     const monthDashID = req.query.monthDashID as string;
     const dateNo = Number(req.query.dateNo);
     const targetID = req.query.targetID as string;
-
     const { target } = req.body;
+    const socketID = req.headers["x-socket-id"] as string;
 
     // validations
     if (!monthDashID || !dateNo || !targetID || !target) {
@@ -2026,6 +2058,10 @@ export const updateDailyTargets = async (req: Request, res: Response) => {
       });
     }
 
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("update-daily-target", updated);
+
     return res.status(200).json({
       success: true,
       target: updated,
@@ -2046,8 +2082,8 @@ export const markDailyTargets = async (req: Request, res: Response) => {
     const monthDashID = req.query.monthDashID as string;
     const dateNo = Number(req.query.dateNo);
     const targetID = req.query.targetID as string;
-
     const { mark = false } = req.body;
+    const socketID = req.headers["x-socket-id"] as string;
 
     // validations
     if (typeof mark !== "boolean") {
@@ -2120,6 +2156,10 @@ export const markDailyTargets = async (req: Request, res: Response) => {
         message: "Target not found",
       });
     }
+
+    const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
+    senderSocket?.to(userID).emit("mark-daily-target", updated);
 
     return res.status(200).json({
       success: true,
