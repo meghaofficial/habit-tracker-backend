@@ -284,6 +284,7 @@ export const markTask = async (req: Request, res: Response) => {
     const taskID = req.query.taskID as string;
     const fullDate = req.query.fullDate as string;
     const { marked } = req.body;
+    const socketID = req.headers["x-socket-id"] as string;
 
     // ------------------ VALIDATIONS --------------------
     if (new Date(fullDate).getDate() !== new Date().getDate()) {
@@ -405,8 +406,14 @@ export const markTask = async (req: Request, res: Response) => {
             count: task.count,
             progress: task.progress,
           },
+          marked,
         };
       });
+
+      const io = getIO();
+      const senderSocket = io.sockets.sockets.get(socketID);
+
+      senderSocket?.to(userID).emit("mark-task", response);
 
       return res.status(200).json({
         success: true,
