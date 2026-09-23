@@ -542,6 +542,7 @@ export const updateTask = async (req: Request, res: Response) => {
     const userID = (req as any).user?.id;
     const taskID = req.query.taskID as string;
     const { taskName } = req.body;
+    const socketID = req.headers["x-socket-id"] as string;
 
     if (!taskID) {
       return res.status(400).json({
@@ -570,10 +571,9 @@ export const updateTask = async (req: Request, res: Response) => {
     }
 
     const io = getIO();
+    const senderSocket = io.sockets.sockets.get(socketID);
 
-    io.to(userID).emit("update-task", {
-      task: updatedTask,
-    });
+    senderSocket?.to(userID).emit("update-task");
 
     return res.status(200).json({});
   } catch (error) {
