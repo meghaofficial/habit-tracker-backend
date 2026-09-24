@@ -878,7 +878,7 @@ export const removeMonthlyTargets = async (req: Request, res: Response) => {
 
     const io = getIO();
     const senderSocket = io.sockets.sockets.get(socketID);
-    senderSocket?.to(userID).emit("remove-monthly-target");
+    senderSocket?.to(userID).emit("remove-monthly-target", updated);
 
     return res.status(200).json({});
   } catch (error) {
