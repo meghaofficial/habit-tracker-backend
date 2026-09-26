@@ -4,10 +4,10 @@ import Calandar from "../models/calandarModel";
 export const createCalandarData = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
-    const { day, month, year, status, title } = req.body;
+    const { day, month, year, tag, color, title } = req.body;
     const description = req.body.description ? req.body.description : "";
 
-    if (!day || !month || !year || !status || !title) {
+    if (!day || !month || !year || !color || !title) {
       return res.status(400).json({
         success: false,
         message: "Missing field detected",
@@ -27,7 +27,8 @@ export const createCalandarData = async (req: Request, res: Response) => {
       year,
       month,
       day,
-      status,
+      tag,
+      color,
       title,
       description,
     });
@@ -37,7 +38,9 @@ export const createCalandarData = async (req: Request, res: Response) => {
       data: {
         id: newCalandarData._id,
         date: new Date(year, month, day),
-        status,
+        day,
+        tag: newCalandarData.tag,
+        color,
         title,
         description,
         updatedAt: newCalandarData.updatedAt,
@@ -64,12 +67,17 @@ export const getCalandarData = async (req: Request, res: Response) => {
       });
     }
 
-    const dataResults = await Calandar.find({ userID, month: Number(month), year: Number(year) });
+    const dataResults = await Calandar.find({
+      userID,
+      month: Number(month),
+      year: Number(year),
+    });
 
     const formattedDataRes = dataResults.map((data) => ({
       id: data._id,
       date: new Date(data.year, data.month, data.day),
-      status: data.status,
+      tag: data.tag,
+      color: data.color,
       title: data.title,
       description: data.description,
       updatedAt: data.updatedAt,
@@ -91,7 +99,7 @@ export const getCalandarData = async (req: Request, res: Response) => {
 export const updateCalandarData = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
-    const { id, status, title, description } = req.body;
+    const { id, tag, color, title, description } = req.body;
 
     if (!id) {
       return res.status(400).json({
@@ -102,8 +110,8 @@ export const updateCalandarData = async (req: Request, res: Response) => {
 
     const updatedData = await Calandar.findOneAndUpdate(
       { _id: id, userID },
-      { status, title, description },
-      { new: true }
+      { tag, color, title, description },
+      { new: true },
     );
 
     if (!updatedData) {
@@ -118,7 +126,8 @@ export const updateCalandarData = async (req: Request, res: Response) => {
       data: {
         id: updatedData._id,
         date: new Date(updatedData.year, updatedData.month, updatedData.day),
-        status: updatedData.status,
+        tag: updatedData.tag,
+        color: updatedData.color,
         title: updatedData.title,
         description: updatedData.description,
         updatedAt: updatedData.updatedAt,

@@ -21,11 +21,19 @@ const calandarSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    status: {
+    // status: {
+    //   type: String,
+    //   required: true,
+    //   default: "default",
+    //   enum: ["default", "important", "event", "achievement", "sick"]
+    // },
+    tag: {
+      type: String,
+      default: "Default",
+    },
+    color: {
       type: String,
       required: true,
-      default: "default",
-      enum: ["default", "important", "event", "achievement", "sick"]
     },
     title: {
       type: String,
@@ -45,13 +53,11 @@ const calandarSchema = new mongoose.Schema(
 // Prevent duplicate entries for the same day
 calandarSchema.index(
   { userID: 1, year: 1, month: 1, day: 1 },
-  { unique: true }
+  { unique: true },
 );
 
 // Speed up monthly queries
-calandarSchema.index(
-  { userID: 1, year: 1, month: 1 }
-);
+calandarSchema.index({ userID: 1, year: 1, month: 1 });
 
 const Calandar = mongoose.model<CalandarI>("Calandar", calandarSchema);
 

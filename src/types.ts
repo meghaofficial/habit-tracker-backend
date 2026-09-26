@@ -82,7 +82,8 @@ export interface CalandarI {
   year: number;
   month: number;
   day: number;
-  status: string;
+  tag: string;
+  color: string;
   title: string;
   description: string;
   updatedAt: string;
