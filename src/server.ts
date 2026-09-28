@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { Response } from "express";
+import express, { Request, Response } from "express";
 import { connectDB } from "./db/db";
 import { userRoute } from "./routes/authRoute";
 import { planRoute } from "./routes/planRoute";
@@ -14,6 +14,7 @@ import { initSocket } from "./socket/socket";
 import { otpRoute } from "./routes/otpRoute";
 import { calandarRoute } from "./routes/calandarRoute";
 import { historyRoute } from "./routes/historyRoute";
+import { aiRoute } from "./routes/aiRoutes";
 
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -33,8 +34,8 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get("/", (res: Response) => {
-  res.send("Hello");
+app.get("/", (req: Request, res: Response) => {
+  return res.send("Hello");
 });
 app.use("/auth", [userRoute, otpRoute]);
 app.use("/auth/api", [
@@ -45,6 +46,7 @@ app.use("/auth/api", [
   analysisRoute,
   calandarRoute,
   historyRoute,
+  aiRoute,
 ]);
 
 server.listen(PORT, () => {
