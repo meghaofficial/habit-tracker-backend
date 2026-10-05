@@ -1023,10 +1023,10 @@ export const getWeeklyTargets = async (req: Request, res: Response) => {
     const monthDashID = req.query.monthDashID as string;
     const week = Number(req.query.week);
 
-    if (!monthDashID || !week) {
+    if (!monthDashID) {
       return res.status(400).json({
         success: false,
-        message: "Month Dashboard ID & week no are required",
+        message: "Month Dashboard ID is required",
       });
     }
 
@@ -1037,17 +1037,25 @@ export const getWeeklyTargets = async (req: Request, res: Response) => {
       });
     }
 
-    if (week < 1 || week > 5) {
+    if (week && (week < 1 || week > 5)) {
       return res.status(400).json({
         success: false,
         message: "Week must be between 1 and 5",
       });
     }
 
-    const targets = await WeeklyTargetsModel.findOne({
-      monthDashID,
-      week,
-    }).lean();
+    let targets;
+
+    if (week) {
+      targets = await WeeklyTargetsModel.findOne({
+        monthDashID,
+        week,
+      }).lean();
+    } else {
+      targets = await WeeklyTargetsModel.find({
+        monthDashID,
+      }).lean();
+    }
 
     return res.status(200).json({
       success: true,
@@ -1673,6 +1681,7 @@ export const updateTaskList = async (req: Request, res: Response) => {
         taskList.map((task) => ({
           monthDashID,
           taskName: task.taskName.trim(),
+          position: task.position,
         })),
         { session },
       );
@@ -1755,10 +1764,10 @@ export const getDailyTargets = async (req: Request, res: Response) => {
     const monthDashID = req.query.monthDashID as string;
     const dateNo = Number(req.query.dateNo);
 
-    if (!monthDashID || !dateNo) {
+    if (!monthDashID) {
       return res.status(400).json({
         success: false,
-        message: "Month Dashboard ID & date no. are required",
+        message: "Month Dashboard ID is required",
       });
     }
 
@@ -1769,17 +1778,25 @@ export const getDailyTargets = async (req: Request, res: Response) => {
       });
     }
 
-    if (dateNo < 1 || dateNo > 31) {
+    if (dateNo && (dateNo < 1 || dateNo > 31)) {
       return res.status(400).json({
         success: false,
         message: "Date no. must be between 1 and 31",
       });
     }
 
-    const targets = await DailyTargetsModel.findOne({
-      monthDashID,
-      dateNo,
-    }).lean();
+    let targets;
+
+    if (dateNo) {
+      targets = await DailyTargetsModel.findOne({
+        monthDashID,
+        dateNo,
+      }).lean();
+    } else {
+      targets = await DailyTargetsModel.find({
+        monthDashID,
+      }).lean();
+    }
 
     return res.status(200).json({
       success: true,

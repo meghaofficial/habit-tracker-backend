@@ -15,6 +15,8 @@ import { otpRoute } from "./routes/otpRoute";
 import { calandarRoute } from "./routes/calandarRoute";
 import { historyRoute } from "./routes/historyRoute";
 import { aiRoute } from "./routes/aiRoutes";
+import "./config/webPush";
+import { notificationRoute } from "./routes/notification.route";
 
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -47,6 +49,7 @@ app.use("/auth/api", [
   calandarRoute,
   historyRoute,
   aiRoute,
+  notificationRoute,
 ]);
 
 server.listen(PORT, () => {
