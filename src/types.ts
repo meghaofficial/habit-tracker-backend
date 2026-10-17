@@ -159,33 +159,46 @@ export interface AnalysisI {
 
 // Roadmap
 
-interface RoadmapNode {
-  id: string;
-  text: string;
-  x: number;
-  y: number;
-  completed: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
+// interface RoadmapNode {
+//   id: string;
+//   text: string;
+//   x: number;
+//   y: number;
+//   completed: boolean;
+//   createdAt: Date;
+//   updatedAt: Date;
+// }
 
-interface RoadmapEdge {
-  id: string;
-  source: string;
-  target: string;
-  type: "child" | "linked";
-}
+// interface RoadmapEdge {
+//   id: string;
+//   source: string;
+//   target: string;
+//   type: "child" | "linked";
+// }
 
-export interface Roadmap {
-  userId: string;
+// export interface Roadmap {
+//   userId: string;
+//   title: string;
+//   description?: string;
+//   thumbnail?: {
+//     type: "url" | "upload";
+//     url: string;
+//   };
+//   nodes: RoadmapNode[];
+//   edges: RoadmapEdge[];
+//   createdAt: Date;
+//   updatedAt: Date;
+// }
+
+export interface RoadmapItem {
+  id: string;
+  userID: string;
   title: string;
   description?: string;
-  thumbnail?: {
-    type: "url" | "upload";
-    url: string;
-  };
-  nodes: RoadmapNode[];
-  edges: RoadmapEdge[];
-  createdAt: Date;
-  updatedAt: Date;
+  icon?: string;
+  total_nodes_count: number;
+  completed_nodes_count: number;
+  status: "completed" | "in-progress" | "pending";
+  accent_color?: string;
+  category: string;
 }

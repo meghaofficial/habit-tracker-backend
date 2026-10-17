@@ -17,6 +17,7 @@ import { historyRoute } from "./routes/historyRoute";
 import { aiRoute } from "./routes/aiRoutes";
 import "./config/webPush";
 import { notificationRoute } from "./routes/notification.route";
+import { roadmapRoute } from "./routes/roadmap.route";
 
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -50,6 +51,7 @@ app.use("/auth/api", [
   historyRoute,
   aiRoute,
   notificationRoute,
+  roadmapRoute,
 ]);
 
 server.listen(PORT, () => {
