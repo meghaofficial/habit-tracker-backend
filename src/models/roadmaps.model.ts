@@ -50,6 +50,23 @@ const roadmapSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    nodes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Roadmap",
+      },
+    ],
+    type: {
+      type: String,
+      enum: ["roadmap", "list"],
+      default: "roadmap",
+      required: true,
+    },
+    parent_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Roadmap",
+      default: null,
+    },
   },
   {
     timestamps: true,
