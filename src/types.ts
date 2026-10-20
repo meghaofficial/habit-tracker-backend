@@ -158,6 +158,12 @@ export interface AnalysisI {
 }
 
 // Roadmap
+export type ListPoint = {
+  id: string;
+  text: string;
+  order: number;
+  completed: boolean;
+};
 export interface RoadmapItem {
   _id: string;
   userID: string;
@@ -172,4 +178,5 @@ export interface RoadmapItem {
   nodes: RoadmapItem[];
   type: "roadmap" | "list";
   parent_id: string | null;
+  points?: ListPoint[];
 }

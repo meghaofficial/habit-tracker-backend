@@ -67,6 +67,29 @@ const roadmapSchema = new mongoose.Schema(
       ref: "Roadmap",
       default: null,
     },
+    points: [
+      {
+        id: {
+          type: String,
+          required: true,
+        },
+        text: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        order: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        completed: {
+          type: Boolean,
+          required: true,
+          default: false,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

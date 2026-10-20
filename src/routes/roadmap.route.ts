@@ -3,6 +3,8 @@ import { isAuthorized } from "../middlewares/authMiddleware";
 import {
   createRoadmapItem,
   deleteRoadmapItem,
+  getCategories,
+  getRoadmapByID,
   getRoadmapList,
   updateRoadmapItem,
 } from "../controllers/roadmap.controller";
@@ -17,6 +19,8 @@ router
   .post(createRoadmapItem)
   .put(updateRoadmapItem);
 
-router.delete("/roadmaps/:id", deleteRoadmapItem);
+router.get("/roadmaps/categories", getCategories);
+
+router.route("/roadmaps/:id").get(getRoadmapByID).delete(deleteRoadmapItem);
 
 export const roadmapRoute = router;
