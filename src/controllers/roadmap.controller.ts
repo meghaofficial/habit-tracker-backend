@@ -19,6 +19,7 @@ export const getRoadmapList = async (req: Request, res: Response) => {
       100,
       Math.max(1, parseInt(req.query.limit as string) || 10),
     );
+    const completed = req.query.completed === "true";
 
     const skip = (page - 1) * limit;
     const filter: any = { userID, parent_id: null };
@@ -30,6 +31,11 @@ export const getRoadmapList = async (req: Request, res: Response) => {
         { title: { $regex: escapedSearch, $options: "i" } },
         { description: { $regex: escapedSearch, $options: "i" } },
       ];
+    }
+
+    if (completed) {
+      filter.total_nodes_count = { $gt: 0 };
+      filter.$expr = { $eq: ["$total_nodes_count", "$completed_nodes_count"] };
     }
 
     const [roadmaps, total] = await Promise.all([
