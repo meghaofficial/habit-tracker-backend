@@ -533,6 +533,7 @@ export const getCategories = async (req: Request, res: Response) => {
     const categories = await RoadmapItem.distinct("category", {
       userID,
       category: { $nin: ["", null] },
+      parent_id: null,
     });
 
     return res.status(200).json({
@@ -541,6 +542,85 @@ export const getCategories = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error fetching categories:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const getFullRoadmapByID = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const { id } = req.params;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid roadmap ID",
+      });
+    }
+
+    const root = await RoadmapItem.findOne({
+      _id: id,
+      userID,
+    }).lean();
+
+    if (!root) {
+      return res.status(404).json({
+        success: false,
+        message: "Roadmap not found",
+      });
+    }
+
+    const populateChildren = async (node: any): Promise<any> => {
+      if (!node.nodes?.length) {
+        return {
+          ...node,
+          nodes: [],
+        };
+      }
+
+      const children = await RoadmapItem.find({
+        _id: { $in: node.nodes },
+        userID,
+      }).lean();
+
+      // Preserve the original order of child IDs.
+      const childrenById = new Map(
+        children.map((child) => [child._id.toString(), child]),
+      );
+
+      const orderedChildren = node.nodes
+        .map((childId: mongoose.Types.ObjectId) =>
+          childrenById.get(childId.toString()),
+        )
+        .filter(Boolean);
+
+      return {
+        ...node,
+        nodes: await Promise.all(
+          orderedChildren.map((child: any) => populateChildren(child)),
+        ),
+      };
+    };
+
+    const fullRoadmap = await populateChildren(root);
+
+    return res.status(200).json({
+      success: true,
+      roadmap: fullRoadmap,
+    });
+  } catch (error) {
+    console.error("Error fetching full roadmap:", error);
 
     return res.status(500).json({
       success: false,
@@ -561,6 +641,44 @@ export const updateRoadmapItem = async (req: Request, res: Response) => {
   }
 };
 
+// export const deleteRoadmapItem = async (req: Request, res: Response) => {
+//   try {
+//     const userID = (req as any).user?.id;
+//     const { id } = req.params;
+
+//     if (!userID) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized",
+//       });
+//     }
+
+//     const deletedRoadmap = await RoadmapItem.findOneAndDelete({
+//       _id: id,
+//       userID,
+//     });
+
+//     if (!deletedRoadmap) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Roadmap not found",
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Roadmap deleted successfully",
+//     });
+//   } catch (error) {
+//     console.error("Delete roadmap error:", error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 export const deleteRoadmapItem = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -573,21 +691,47 @@ export const deleteRoadmapItem = async (req: Request, res: Response) => {
       });
     }
 
-    const deletedRoadmap = await RoadmapItem.findOneAndDelete({
+    // Verify that the root item belongs to this user
+    const roadmap = await RoadmapItem.findOne({
       _id: id,
       userID,
-    });
+    }).select("_id");
 
-    if (!deletedRoadmap) {
+    if (!roadmap) {
       return res.status(404).json({
         success: false,
         message: "Roadmap not found",
       });
     }
 
+    // Collect the root ID and every descendant ID
+    const allIds: string[] = [roadmap._id.toString()];
+    let currentParentIds: string[] = [roadmap._id.toString()];
+
+    while (currentParentIds.length > 0) {
+      const children = await RoadmapItem.find({
+        parent_id: { $in: currentParentIds },
+        userID,
+      }).select("_id");
+
+      const childIds = children.map((child) => child._id.toString());
+
+      if (childIds.length === 0) break;
+
+      allIds.push(...childIds);
+      currentParentIds = childIds;
+    }
+
+    // Delete the root and all descendants
+    await RoadmapItem.deleteMany({
+      _id: { $in: allIds },
+      userID,
+    });
+
     return res.status(200).json({
       success: true,
-      message: "Roadmap deleted successfully",
+      message: "Roadmap and all nested items deleted successfully",
+      deletedCount: allIds.length,
     });
   } catch (error) {
     console.error("Delete roadmap error:", error);

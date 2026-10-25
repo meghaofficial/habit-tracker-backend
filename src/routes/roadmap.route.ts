@@ -4,6 +4,7 @@ import {
   createRoadmapItem,
   deleteRoadmapItem,
   getCategories,
+  getFullRoadmapByID,
   getRoadmapByID,
   getRoadmapList,
   updateRoadmapItem,
@@ -22,5 +23,7 @@ router
 router.get("/roadmaps/categories", getCategories);
 
 router.route("/roadmaps/:id").get(getRoadmapByID).delete(deleteRoadmapItem);
+
+router.get("/roadmaps/:id/full", getFullRoadmapByID);
 
 export const roadmapRoute = router;
