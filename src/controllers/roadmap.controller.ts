@@ -66,191 +66,6 @@ export const getRoadmapList = async (req: Request, res: Response) => {
   }
 };
 
-// export const createRoadmapItem = async (req: Request, res: Response) => {
-//   const session = await mongoose.startSession();
-//   try {
-//     const userID = (req as any).user?.id;
-
-//     if (!userID) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Unauthorized",
-//       });
-//     }
-
-//     const {
-//       title,
-//       description,
-//       icon,
-//       total_nodes_count,
-//       completed_nodes_count,
-//       status,
-//       accent_color,
-//       category,
-//       parent_id,
-//       type,
-//     } = req.body;
-
-//     if (!title?.trim()) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Roadmap title is required",
-//       });
-//     }
-
-//     const itemType = type ?? "roadmap";
-
-//     if (!["roadmap", "list"].includes(itemType)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Type must be either 'roadmap' or 'list'",
-//       });
-//     }
-
-//     if (parent_id && !mongoose.Types.ObjectId.isValid(parent_id)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid parent_id",
-//       });
-//     }
-
-//     let responseData: {
-//       data: any;
-//       parents: { _id: mongoose.Types.ObjectId; title: string }[];
-//     } | null = null;
-
-//     await session.withTransaction(async () => {
-//       let parent = null;
-
-//       const parents: {
-//         _id: mongoose.Types.ObjectId;
-//         title: string;
-//       }[] = [];
-
-//       if (parent_id) {
-//         parent = await RoadmapItem.findOne({
-//           _id: parent_id,
-//           userID,
-//         }).session(session);
-
-//         if (!parent) {
-//           throw new Error("PARENT_NOT_FOUND");
-//         }
-
-//         const visited = new Set<string>();
-
-//         let currentParent = parent;
-
-//         while (currentParent) {
-//           const currentID = currentParent._id.toString();
-
-//           if (visited.has(currentID)) {
-//             throw new Error("PARENT_CYCLE_DETECTED");
-//           }
-
-//           visited.add(currentID);
-
-//           parents.push({
-//             _id: new mongoose.Types.ObjectId(currentParent._id),
-//             title: currentParent.title,
-//           });
-
-//           if (!currentParent.parent_id) {
-//             break;
-//           }
-
-//           const nextParent = await RoadmapItem.findOne({
-//             _id: currentParent.parent_id,
-//             userID,
-//           }).session(session);
-
-//           if (!nextParent) {
-//             throw new Error("INVALID_PARENT_CHAIN");
-//           }
-
-//           currentParent = nextParent;
-//         }
-//         parents.reverse();
-//       }
-
-//       const [roadmapItem] = await RoadmapItem.create(
-//         [
-//           {
-//             userID,
-//             title: title.trim(),
-//             description: description ?? "",
-//             icon: icon ?? "",
-//             total_nodes_count: total_nodes_count ?? 0,
-//             completed_nodes_count: completed_nodes_count ?? 0,
-//             status: status ?? "pending",
-//             accent_color: accent_color ?? "",
-//             category: category ?? "",
-//             type: itemType,
-//             parent_id: parent?._id ?? null,
-//             nodes: [],
-//           },
-//         ],
-//         { session },
-//       );
-
-//       if (parent) {
-//         await RoadmapItem.updateOne(
-//           {
-//             _id: parent._id,
-//             userID,
-//           },
-//           {
-//             $addToSet: {
-//               nodes: roadmapItem._id,
-//             },
-//           },
-//           { session },
-//         );
-//       }
-
-//       responseData = {
-//         data: roadmapItem.toObject(),
-//         parents,
-//       };
-//     });
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Roadmap item created successfully",
-//       data: responseData,
-//     });
-//   } catch (error: any) {
-//     console.error("Create roadmap error:", error);
-
-//     if (error.message === "PARENT_NOT_FOUND") {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Parent roadmap item not found",
-//       });
-//     }
-
-//     if (error.message === "INVALID_PARENT_CHAIN") {
-//       return res.status(400).json({
-//         success: false,
-//         message: "The parent roadmap chain is invalid",
-//       });
-//     }
-//     if (error.message === "PARENT_CYCLE_DETECTED") {
-//       return res.status(400).json({
-//         success: false,
-//         message: "A cycle was detected in the parent chain",
-//       });
-//     }
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//     });
-//   } finally {
-//     await session.endSession();
-//   }
-// };
-
 export const createRoadmapItem = async (req: Request, res: Response) => {
   const session = await mongoose.startSession();
 
@@ -647,44 +462,6 @@ export const updateRoadmapItem = async (req: Request, res: Response) => {
   }
 };
 
-// export const deleteRoadmapItem = async (req: Request, res: Response) => {
-//   try {
-//     const userID = (req as any).user?.id;
-//     const { id } = req.params;
-
-//     if (!userID) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Unauthorized",
-//       });
-//     }
-
-//     const deletedRoadmap = await RoadmapItem.findOneAndDelete({
-//       _id: id,
-//       userID,
-//     });
-
-//     if (!deletedRoadmap) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Roadmap not found",
-//       });
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Roadmap deleted successfully",
-//     });
-//   } catch (error) {
-//     console.error("Delete roadmap error:", error);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//     });
-//   }
-// };
-
 export const deleteRoadmapItem = async (req: Request, res: Response) => {
   try {
     const userID = (req as any).user?.id;
@@ -745,6 +522,87 @@ export const deleteRoadmapItem = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+    });
+  }
+};
+
+export const getRoadmapTrail = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const { ids } = req.body;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string")) {
+      return res.status(400).json({
+        success: false,
+        message: "ids must be an array of strings",
+      });
+    }
+
+    if (ids.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+      });
+    }
+
+    if (!ids.every((id) => mongoose.isValidObjectId(id))) {
+      return res.status(400).json({
+        success: false,
+        message: "One or more roadmap IDs are invalid",
+      });
+    }
+
+    // Fetch all requested roadmaps in one database query.
+    const roadmaps = await RoadmapItem.find({
+      _id: { $in: ids },
+      userID,
+    })
+      .select("_id title accent_color")
+      .lean();
+
+    // Create a lookup map for preserving the requested order.
+    const roadmapMap = new Map(
+      roadmaps.map((roadmap) => [roadmap._id.toString(), roadmap]),
+    );
+
+    // Ensure every requested ID belongs to the authenticated user.
+    const missingRoadmap = ids.some((id) => !roadmapMap.has(id));
+
+    if (missingRoadmap) {
+      return res.status(404).json({
+        success: false,
+        message: "One or more roadmaps were not found",
+      });
+    }
+
+    // Return roadmaps in the same order as the supplied IDs.
+    const data = ids.map((id) => {
+      const roadmap = roadmapMap.get(id)!;
+
+      return {
+        _id: roadmap._id,
+        title: roadmap.title,
+        accent_color: roadmap.accent_color,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error("Failed to fetch roadmap trail:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch roadmap trail",
     });
   }
 };
