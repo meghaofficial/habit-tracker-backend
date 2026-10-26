@@ -8,7 +8,6 @@ import {
   getRoadmapByID,
   getRoadmapList,
   getRoadmapTrail,
-  startRoadmap,
   updateRoadmapItem,
 } from "../controllers/roadmap.controller";
 
@@ -29,7 +28,5 @@ router.route("/roadmaps/:id").get(getRoadmapByID).delete(deleteRoadmapItem);
 router.get("/roadmaps/:id/full", getFullRoadmapByID);
 
 router.post("/roadmaps/trail", getRoadmapTrail);
-
-router.patch("/roadmaps/start", startRoadmap);
 
 export const roadmapRoute = router;
