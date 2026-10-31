@@ -61,13 +61,10 @@ export const getDateLog = async (req: Request, res: Response) => {
       const logsToCreate = Array.from({ length: totalDays }, (_, i) => {
         return {
           monthDashID,
-          // fullDate: new Date(Date.UTC(year, month, i + 1)),.
-          // Assuming monthDetail.month is 1-indexed (1-12)
-          fullDate: new Date(Date.UTC(year, month - 1, i + 1)),
+          fullDate: new Date(Date.UTC(year, month, i + 1)),
           tasks: [],
         };
       });
-
       const insertedLogs = await DateLogModel.insertMany(logsToCreate, {
         ordered: false,
       });

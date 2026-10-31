@@ -606,3 +606,116 @@ export const getRoadmapTrail = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const markRoadmap = async (req: Request, res: Response) => {
+  try {
+    const userID = (req as any).user?.id;
+    const { roadmapID, type, mark, listID } = req.body;
+
+    if (!userID) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    if (!roadmapID || !mongoose.isValidObjectId(roadmapID)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid roadmapID is required",
+      });
+    }
+
+    if (!["roadmap", "list"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "type must be roadmap or list",
+      });
+    }
+
+    if (typeof mark !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "mark must be a boolean",
+      });
+    }
+
+    // CASE 1: Mark a roadmap as completed or uncompleted
+    if (type === "roadmap") {
+      const update: Record<string, unknown> = {
+        status: mark ? "completed" : "in-progress",
+      };
+
+      const updatedRoadmap = await RoadmapItem.findOneAndUpdate(
+        { _id: roadmapID, userID },
+        { $set: update },
+        { new: true, runValidators: true },
+      ).select("_id title status");
+
+      if (!updatedRoadmap) {
+        return res.status(404).json({
+          success: false,
+          message: "Roadmap not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: mark
+          ? "Roadmap marked as completed"
+          : "Roadmap marked as pending",
+        data: updatedRoadmap,
+      });
+    }
+
+    // CASE 2: Mark a specific list point
+    if (type === "list") {
+      if (!listID || typeof listID !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "listID is required for list type",
+        });
+      }
+
+      const updatedRoadmap = await RoadmapItem.findOneAndUpdate(
+        {
+          _id: roadmapID,
+          userID,
+          type: "list",
+          "points.id": listID,
+        },
+        {
+          $set: {
+            "points.$.completed": mark,
+          },
+        },
+        {
+          new: true,
+          runValidators: true,
+        },
+      ).select("_id title points");
+
+      if (!updatedRoadmap) {
+        return res.status(404).json({
+          success: false,
+          message: "Roadmap or list point not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: mark
+          ? "List point marked as completed"
+          : "List point marked as incomplete",
+        data: updatedRoadmap,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to mark roadmap:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update roadmap",
+    });
+  }
+};

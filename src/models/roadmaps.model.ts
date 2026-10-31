@@ -96,6 +96,8 @@ const roadmapSchema = new mongoose.Schema(
   },
 );
 
+roadmapSchema.index({ userID: 1, parent_id: 1 });
+
 const RoadmapItem = mongoose.model<RoadmapItem>("Roadmap", roadmapSchema);
 
 export default RoadmapItem;
