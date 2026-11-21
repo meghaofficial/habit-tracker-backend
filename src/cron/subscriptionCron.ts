@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import Subscription from "../models/subscription";
+import Subscription from "../modules/subscription/subscription.model";
 
 export const startSubscriptionCron = () => {
   // Runs every day at midnight
@@ -16,7 +16,7 @@ export const startSubscriptionCron = () => {
         },
         {
           $set: { status: "active" },
-        }
+        },
       );
       await Subscription.updateMany(
         {
@@ -25,7 +25,7 @@ export const startSubscriptionCron = () => {
         },
         {
           $set: { status: "expired" },
-        }
+        },
       );
 
       console.log("✅ Subscription cron completed");

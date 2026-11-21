@@ -1,23 +1,21 @@
 import "dotenv/config";
 import express, { Request, Response } from "express";
 import { connectDB } from "./db/db";
-import { userRoute } from "./routes/authRoute";
-import { planRoute } from "./routes/planRoute";
-import { subsRoute } from "./routes/subscriptionRoute";
-import { dashboardRoute } from "./routes/dashboardRoute";
-import { dateLogRoute } from "./routes/dateRoute";
+import { userRoute } from "./modules/auth/auth.routes";
+import { planRoute } from "./modules/plan/plan.routes";
+import { subsRoute } from "./modules/subscription/subscription.routes";
+import { dashboardRoute } from "./modules/dashboard/dashboard.routes";
+import { dateLogRoute } from "./modules/datelog/datelog.routes";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { analysisRoute } from "./routes/analysisRoute";
+import { analysisRoute } from "./modules/analysis/analysis.routes";
 import http from "http";
 import { initSocket } from "./socket/socket";
-import { otpRoute } from "./routes/otpRoute";
-import { calandarRoute } from "./routes/calandarRoute";
-import { historyRoute } from "./routes/historyRoute";
-import { aiRoute } from "./routes/aiRoutes";
+import { otpRoute } from "./modules/otp/otp.routes";
+import { calandarRoute } from "./modules/calander/calander.routes";
+import { historyRoute } from "./modules/history/history.routes";
 import "./config/webPush";
-import { notificationRoute } from "./routes/notification.route";
-import { roadmapRoute } from "./routes/roadmap.route";
+// import { roadmapRoute } from "./modules/roadmap/roadmap.routes";
 
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -49,13 +47,9 @@ app.use("/auth/api", [
   analysisRoute,
   calandarRoute,
   historyRoute,
-  aiRoute,
-  notificationRoute,
-  roadmapRoute,
+  // roadmapRoute,
 ]);
 
 server.listen(PORT, () => {
   console.log(`listening on PORT - ${PORT}`);
 });
-
-// app.listen(PORT, () => console.log(`listening on PORT - ${PORT}`));

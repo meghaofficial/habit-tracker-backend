@@ -1,5 +1,5 @@
 import nodeCron from "node-cron";
-import User from "../models/authModel";
+import User from "../modules/auth/auth.model";
 
 export const removeRefreshToken = async () => {
   nodeCron.schedule(

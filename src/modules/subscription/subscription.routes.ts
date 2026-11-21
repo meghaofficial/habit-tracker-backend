@@ -1,0 +1,15 @@
+import { Router } from "express";
+import { isAuthorized } from "../../shared/middlewares/auth.middleware";
+import {
+  createSubscription,
+  getActiveSubscription,
+  getAllSubscription,
+} from "./subscription.controller";
+
+const router = Router();
+
+router.post("/subscribe", isAuthorized, createSubscription);
+router.get("/active-subscription", isAuthorized, getActiveSubscription);
+router.get("/all-subscriptions", isAuthorized, getAllSubscription);
+
+export const subsRoute = router;
