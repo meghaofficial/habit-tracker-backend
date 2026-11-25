@@ -15,7 +15,7 @@ import { otpRoute } from "./modules/otp/otp.routes";
 import { calandarRoute } from "./modules/calander/calander.routes";
 import { historyRoute } from "./modules/history/history.routes";
 import "./config/webPush";
-// import { roadmapRoute } from "./modules/roadmap/roadmap.routes";
+import { roadmapRoute } from "./modules/roadmap/roadmap.routes";
 
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -47,7 +47,7 @@ app.use("/auth/api", [
   analysisRoute,
   calandarRoute,
   historyRoute,
-  // roadmapRoute,
+  roadmapRoute,
 ]);
 
 server.listen(PORT, () => {

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { RoadmapI } from "./roadmap.types";
 
 const roadmapSchema = new mongoose.Schema(
   {
@@ -27,8 +28,19 @@ const roadmapSchema = new mongoose.Schema(
       default: "",
     },
     icon: {
-      type: String,
-      default: "",
+      value: {
+        type: String,
+        default: "",
+      },
+      icon_type: {
+        type: String,
+        enum: ["url", "upload", "icon"],
+        default: "icon",
+      },
+      s3_key: {
+        type: String,
+        default: "",
+      },
     },
     category: {
       type: String,
@@ -53,6 +65,6 @@ const roadmapSchema = new mongoose.Schema(
   },
 );
 
-const Roadmap = mongoose.model("Roadmap", roadmapSchema);
+const Roadmap = mongoose.model<RoadmapI>("Roadmap", roadmapSchema);
 
 export default Roadmap;
